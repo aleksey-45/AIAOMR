@@ -1,0 +1,24 @@
+# deepseek_flash 专属参数（规格 §5 末尾、§4.1）。
+# 厂商字面量只允许出现在 providers/ 与 configs/providers/（LAY-07）。
+
+# 模型版本串：deepseek-flash = DeepSeek-V4.1-Flash-1017。
+model = "deepseek-flash"
+
+# 并发上限；运行时取 min(本值, caps.max_concurrency)（V-07、V-12）。
+max_concurrency = 16
+
+# 空内容 / JSON 解析失败的重试次数（V-05）；退避 1s/3s。
+retry_empty = 2
+
+# 429/5xx/超时的退避重试次数（V-06）；401/403 禁止重试。
+retry_http = 5
+
+# thinking 开关；当前默认关。P0 实测（docs/p0-results.md）：思考开着时整系统读数
+# 会把 max_tokens 全花在 reasoning 上，不产出答案，单次 ¥0.0642。P2 再评估。
+thinking = false
+
+# max_tokens 必须显式设置，按"小节数 × 预算 + 余量"估（§4.1）。
+max_tokens_rule = "400*measures+800"
+
+# temperature；0 不保证可复现，可靠性靠 fixture 与幂等（§1.7）。
+temperature = 0

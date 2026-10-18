@@ -1,0 +1,70 @@
+# 与 provider 无关的参数。逐项对应规格 §5 的参数表。
+#
+# provider 专属参数（model、max_concurrency、retry_empty、retry_http、thinking、
+# max_tokens_rule、temperature）不写在这里，写进 configs/providers/<name>.toml。
+# 代码里不许出现本表之外的魔数；新增参数必须先登记到规格 §5。
+
+[provider]
+# 当前唯一实现；其余名字启动即报错（requires configs/providers/<name>.toml 存在）。
+name = "deepseek_flash"
+
+[crop]
+# 裁片像素区间，单位百万像素（RD-02）。P0 实测：统一缩放到 1.6 MP 才读得全，
+# 低于这个数会掉准确率，所以上下限都取 1.6（见 docs/p0-results.md）。
+target_mp_min = 1.6
+target_mp_max = 1.6
+# 长边上限；运行时再与 caps.max_side_px 取 min（V-12、RD-09）。
+# 1.6 MP 的长条约 3270 像素宽，所以不能再用 2500。
+max_side_px = 4096
+# 单次调用请求的小节数上限（RD-05）。
+max_measures_per_call = 8
+# 拆分裁片的引用条宽度区间，像素；实际宽度取 4×deg 再 clamp 到这里（RD-03、R-05）。
+header_strip_px = [40, 100]
+
+[read]
+# 压缩后有效谱线间距下限，deg；低于此值只记 WARN，不阻断。
+min_deg_eff = 12
+
+[budget]
+# 成本预算的唯一单位：人民币元 / 每 8 小节，谷价（空闲时段）口径，四位小数（V-09、§12）。
+cny_per_8measures = 0.0150
+# 记账精度。它不是账单：只用于预算闸与回归比较，不与 provider 对账。
+precision = 0.0001
+
+[locate]
+# 谱线行覆盖率下限。
+line_frac_min = 0.60
+# 谱线厚度超过即判为黑边/进度条。
+max_line_thickness_px = 25
+# 五线谱带与 TAB 带的纵向间隔区间，像素（R-02）。
+tab_pair_gap_px = [60, 400]
+
+[skeleton]
+# 拍号读不出时，推断"小节时值众数"所需的最少小节数（S-01）。
+infer_ts_min_measures = 3
+# 速度读不出时的默认值。
+default_tempo = 120
+# 调号读不出时的默认值；不影响音高，只影响 A2 与显示（S-03）。
+default_key = "CMajor"
+# 曲名读不出时用文件名 stem。
+title_from_filename = true
+
+[structure]
+# A11/A12 聚类检测所需的最小连续小节数（§2.2.3）。
+change_min_run = 3
+
+[emit]
+# GP5 文本编码（本机 ANSI 代码页）。
+encoding = "cp936"
+
+[adjudicate]
+# 复读 + 终裁的最大轮数，防止无限循环。
+max_rounds = 2
+
+[retain]
+# 是否保留裁片图（证据留存，占空间）。
+crops = true
+
+[run]
+# 阻断时等待在途请求返回的宽限，毫秒（用于准确记账）。
+inflight_grace_ms = 30000
