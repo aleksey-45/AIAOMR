@@ -70,7 +70,9 @@ def assemble(
             Measure(
                 index=len(measures) + 1,
                 printed=printed,
-                rest=bool(read.unreadable),
+                # 没有 beat 的小节（识别失败或多小节休止）写成休止小节；这不是"补音符"，
+                # 只是把"这一小节什么都没读到"如实记成 rest。
+                rest=bool(read.unreadable) or not read.beats,
                 multiRest=1,
                 beats=list(read.beats),
             )

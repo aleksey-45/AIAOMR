@@ -291,6 +291,16 @@ def run_command(args) -> int:
                                   page_index=index))
             if not tasks:
                 return _block(reporter, out_dir, "read", ErrorCode.E_NO_SYSTEM, "裁切规划没有产出任务")
+            # 把骨架里读到的拍号/调弦塞进每个任务的提示：模型知道这一小节该有几拍，
+            # 也知道空弦音高（A2 之后才验得动）。
+            from .score.verify.invariants import effective_ts
+
+            for task in tasks:
+                signature = effective_ts(skeleton.timeSignatures, task.measures[0].index)
+                if signature is not None:
+                    task.hints["timeSignature"] = f"{signature.beats}/{signature.beatType}"
+                task.hints["tuning"] = list(skeleton.tuning)
+                task.hints["stringCount"] = len(skeleton.tuning)
             provider = _make_provider(args, cfg, out_dir)
             budget = Decimal(cfg.budget.cny_per_8measures)
             total_measures = sum(len(task.measures) for task in tasks)
