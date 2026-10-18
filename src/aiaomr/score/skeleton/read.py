@@ -199,8 +199,8 @@ def read_skeleton(
         call_id=hints.get("callId", "skeleton"),
         prompt_prefix=load_prompt(),
         prompt_suffix=(
-            f"Page {hints.get('page', 1)}, header of the first system. "
-            f"The TAB staff has {hints.get('stringCount', 4)} lines."
+            f"这是第 {hints.get('page', 1)} 页第一个系统的头部；"
+            f"TAB 有 {hints.get('stringCount', 4)} 条线。"
         ),
         images=(ImageInput(path.read_bytes(), "image/png"),),
         max_tokens=1500,

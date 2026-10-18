@@ -26,7 +26,8 @@ class _Model(BaseModel):
 class ModelNote(_Model):
     string: int = Field(ge=1, le=6)
     fret: int = Field(ge=0, le=36)
-    pitch: int = Field(ge=0, le=127)
+    # 音高是可选的对账项：最终音高由调弦 + 品数算（F-01），模型读不准五线谱就不给。
+    pitch: int | None = Field(default=None, ge=0, le=127)
     digit: str | None = None
     tie: bool = False
     tieFromPrevious: bool = False

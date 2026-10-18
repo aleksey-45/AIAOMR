@@ -40,24 +40,54 @@ def max_tokens_for(rule: str, measures: int) -> int:
     return int(match.group(1)) * max(1, measures) + int(match.group(2))
 
 
+_MIDI_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
+def midi_name(value: int) -> str:
+    """MIDI → 音名（60 = C4），写进提示词让人和模型都不歧义。"""
+    return f"{_MIDI_NAMES[value % 12]}{value // 12 - 1}"
+
+
+def key_display(key: str) -> str:
+    """`BMajor` → `B 大调`，提示词里按乐理写法给。"""
+    for suffix, mode in (("Major", "大调"), ("Minor", "小调")):
+        if key.endswith(suffix):
+            return f"{key[:-len(suffix)]} {mode}"
+    return key
+
+
 def build_suffix(task: MeasureTask, cfg: Config) -> str:
-    """可变后缀：小节号、弦数、调弦、拍号、调号；稳定前缀不在这里。"""
+    """可变后缀：先说要读哪几个小节，再把骨架定死的参考参数写在后面。
+
+    参考信息（拍号、调号、谱号、调弦、弦号）一律由骨架给出，读小节的模型只负责
+    "按这些参数把图上的音符翻译出来"，不负责判定它们（§2.2 骨架的职责）。
+    """
     hints = task.hints or {}
     indices = [box.index for box in task.measures]
-    parts = [
-        f"Page {hints.get('page', 1)}, system {task.system}. Read measures: {', '.join(str(i) for i in indices)}.",
-        f"The TAB staff has {hints.get('stringCount', 4)} lines.",
-    ]
-    tuning = hints.get("tuning")
-    if tuning:
-        parts.append(f"Tuning (MIDI, lowest string first): {', '.join(str(v) for v in tuning)}.")
+    string_count = int(hints.get("stringCount", 4))
+    tuning = hints.get("tuning") or []
+    numbers = "、".join(str(index) for index in indices)
+    lines = [f"请识别第 {numbers} 小节。", "参考信息（由骨架确定，直接采用，不要修改）："]
+
+    if hints.get("clef"):
+        lines.append(f"- 谱号：{hints['clef']}；书写音高 = 发声音高，没有八度移调")
     if hints.get("timeSignature"):
-        parts.append(f"Current time signature: {hints['timeSignature']}.")
+        lines.append(f"- 拍号：{hints['timeSignature']}")
     if hints.get("keySignature"):
-        parts.append(f"Current key signature: {hints['keySignature']}.")
+        lines.append(f"- 调号：{key_display(hints['keySignature'])}")
+    if len(tuning) == string_count:
+        strings = "、".join(
+            f"第 {index + 1} 弦 {midi_name(tuning[string_count - 1 - index])}"
+            f"({tuning[string_count - 1 - index]})"
+            for index in range(string_count)
+        )
+        lines.append(f"- 调弦（TAB 自上而下）：{strings}")
+    else:
+        lines.append(f"- TAB 有 {string_count} 条线")
+    lines.append(f"- 弦号：TAB 顶线 = string 1，底线 = string {string_count}")
     if hints.get("hasStrip"):
-        parts.append("The left strip of this crop is a clef/key reference and is not part of the music.")
-    return " ".join(parts)
+        lines.append("- 左边那条窄条是谱号/调号引用，不属于本段内容")
+    return "\n".join(lines)
 
 
 def _convert(
@@ -98,7 +128,13 @@ def _convert(
                 ir_string = string_count - note.string + 1
                 if not 1 <= ir_string <= string_count:
                     raise SchemaError(f"弦号越界：模型给 {note.string}，弦数 {string_count}")
-                pitch = tuning[ir_string - 1] + note.fret if len(tuning) == string_count else note.pitch
+                if len(tuning) == string_count:
+                    # 权威音高由调弦 + 品数算（F-01）；模型的 pitch 只作为对账用。
+                    pitch = tuning[ir_string - 1] + note.fret
+                elif note.pitch is not None:
+                    pitch = note.pitch
+                else:
+                    raise SchemaError("既没有调弦可算音高，模型也没有给 pitch")
                 digit = (
                     Digit(value=note.digit, glyphs=len(note.digit), bound=True)
                     if note.digit

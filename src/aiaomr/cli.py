@@ -24,13 +24,14 @@ from .events import Emitter, HumanRenderer
 from .kernel.config import Config, ConfigError, load_config
 from .kernel.contracts import Crop, MeasureResult, PageSet
 from .kernel.errors import ErrorCode
-from .kernel.ir import Audit, Build, IR, Meta, Source
+from .kernel.ir import Audit, Build, IR, KeySignature, Meta, Source
 from .measure.crop_plan import plan
 from .measure.read import read_systems
 from .providers.base import ProviderError
 from .providers.registry import get_provider
 from .score.assemble.assemble import assemble
 from .score.locate.page import locate as locate_pages
+from .score.skeleton.keysig import read_key_signature
 from .score.skeleton.read import read_skeleton
 from .score.verify.invariants import check_all
 from .writers.audit import audit, audit_passed
@@ -127,6 +128,31 @@ def _header_crop(page_image: Image.Image, pageset: PageSet, out_dir: Path) -> Cr
         kind="sheet",
         px=(box[2] - box[0]) * (box[3] - box[1]),
         deg=float(page.deg),
+        has_clef=True,
+    )
+
+
+def _keysig_crop(page_image: Image.Image, pageset: PageSet, out_dir: Path) -> Crop:
+    """第一个系统开头那一小块：谱号、调号、拍号。调号的窄问题只喂这张图。"""
+    page = pageset.pages[0]
+    system = page.systems[0]
+    deg = max(1.0, (system.y1 - system.y0) / 4.0)
+    left = int(round(system.measures[0].x0)) if system.measures else 0
+    width = int(round(max(150.0, 14.0 * deg)))
+    right = min(page_image.size[0], left + width)
+    top = max(0, int(round(system.y0 - 1.5 * deg)))
+    bottom = min(page_image.size[1], int(round(system.y1 + 1.5 * deg)))
+    box = (left, top, right, bottom)
+    crop_dir = out_dir / "crops"
+    crop_dir.mkdir(parents=True, exist_ok=True)
+    path = crop_dir / "keysig.png"
+    page_image.crop(box).save(path)
+    return Crop(
+        path=str(path),
+        box=[float(v) for v in box],
+        kind="sheet",
+        px=(box[2] - box[0]) * (box[3] - box[1]),
+        deg=float(deg),
         has_clef=True,
     )
 
@@ -275,6 +301,13 @@ def run_command(args) -> int:
                     hints={"page": 1, "stringCount": len(first_system.tabLines),
                            "callId": "skeleton", "title": song},
                 )
+                # 调号是骨架参数，必须定死：先用窄图专门问一次，再覆盖整页读出来的值。
+                key_crop = _keysig_crop(images[0], pageset, out_dir)
+                key = read_key_signature(key_crop, provider, cfg, emit=reporter.emit)
+                if key:
+                    skeleton.keySignatures = [KeySignature(measure=1, key=key)]
+                    skeleton.provenance.keySignatures = "read"
+                    reporter.emit("skeleton", "skeleton.key_fixed", key=key)
                 _write_json(skeleton_path, json.loads(skeleton.model_dump_json()))
             reporter.emit("skeleton", "skeleton.done", title=skeleton.title,
                           timeSignature=(skeleton.timeSignatures[0].beats if skeleton.timeSignatures else None))
@@ -300,6 +333,12 @@ def run_command(args) -> int:
                 signature = effective_ts(skeleton.timeSignatures, task.measures[0].index)
                 if signature is not None:
                     task.hints["timeSignature"] = f"{signature.beats}/{signature.beatType}"
+                key = None
+                for event in skeleton.keySignatures:
+                    if event.measure <= task.measures[0].index:
+                        key = event.key
+                if key:
+                    task.hints["keySignature"] = key
                 task.hints["tuning"] = list(skeleton.tuning)
                 task.hints["stringCount"] = len(skeleton.tuning)
             provider = _make_provider(args, cfg, out_dir)

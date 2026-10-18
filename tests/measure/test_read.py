@@ -11,7 +11,7 @@ from PIL import Image
 from aiaomr.kernel.config import load_config
 from aiaomr.kernel.contracts import Crop, MeasureBox, MeasureTask
 from aiaomr.kernel.errors import ErrorCode
-from aiaomr.measure.read import max_tokens_for, read_systems
+from aiaomr.measure.read import build_suffix, max_tokens_for, read_systems
 from aiaomr.providers.base import VisionResponse
 
 VALID = {
@@ -100,16 +100,20 @@ def test_valid_response_is_converted_with_string_flip(tmp_path: Path) -> None:
     assert second.string == 1 and second.pitch == 28 + 5
 
 
-def test_missing_pitch_is_schema_error_after_retry(tmp_path: Path) -> None:
-    bad = {"measures": [{"index": 1, "beats": [{"duration": "quarter", "notes": [{"string": 2, "fret": 3}]}]}]}
+def test_missing_pitch_is_optional_not_an_error(tmp_path: Path) -> None:
+    """pitch 是可选的对账项：模型不给也能用调弦 + 品数算出权威音高（F-01）。"""
+    content = {"measures": [{"index": 1, "beats": [
+        {"duration": "quarter", "notes": [{"string": 2, "fret": 3}]}]}]}
     cfg = load_config("deepseek_flash")
-    provider = FakeProvider([bad])
+    provider = FakeProvider([content])
 
     results = read_systems([make_task(tmp_path, measures=(1,))], provider, cfg)
 
-    assert results[0].errorCode is ErrorCode.E_VLM_SCHEMA
-    assert results[0].reads == []
-    assert len(provider.calls) == 2
+    assert results[0].errorCode is None
+    note = results[0].reads[0].beats[0].notes[0]
+    assert note.pitchClaim is None
+    assert note.string == 3  # GP string 2 → IR string 3
+    assert note.pitch == 38 + 3
 
 
 def test_measure_index_mismatch_is_schema_error(tmp_path: Path) -> None:
@@ -150,3 +154,19 @@ def test_two_character_digit_is_one_digit_with_two_glyphs(tmp_path: Path) -> Non
 def test_max_tokens_follows_rule() -> None:
     assert max_tokens_for("400*measures+800", 8) == 4000
     assert max_tokens_for("400*measures+800", 0) == 1200
+
+
+def test_suffix_injects_clef_key_and_string_names(tmp_path: Path) -> None:
+    """提示词必须给全：谱号在稳定前缀里，调号和每根弦的音名在后缀里。"""
+    cfg = load_config("deepseek_flash")
+    task = make_task(tmp_path, measures=(1,))
+    task.hints.update({"keySignature": "BMajor", "clef": "bass", "timeSignature": "6/8"})
+
+    suffix = build_suffix(task, cfg)
+
+    assert "第 1 小节" in suffix
+    assert "拍号：6/8" in suffix
+    assert "调号：B 大调" in suffix
+    assert "第 1 弦 G2(43)" in suffix
+    assert "第 4 弦 E1(28)" in suffix
+    assert "TAB 顶线 = string 1，底线 = string 4" in suffix
