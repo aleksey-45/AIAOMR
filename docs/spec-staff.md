@@ -261,7 +261,8 @@ class MeasureRhythm(_Model):
 | `staff.beam_coverage` | 0.85 | 横梁段覆盖率下限 |
 | `staff.beam_thickness_deg` | 0.3–0.9 | 横梁段厚度范围 |
 | `staff.layer_gap_deg` | 0.8 | 横梁分层 y 差阈值 |
-| `staff.dot_area_deg2` | 3–0.45·deg² | 附点面积范围 |
+| `staff.dot_min_area_px` | 3 | 附点的绝对面积下限（平方像素；抗噪） |
+| `staff.dot_max_area_deg2` | 0.45 | 附点面积上限 = 该值 × deg²（挡掉整行墨迹） |
 | `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |
 
 ## 12. 目录、文件与产物归属
@@ -274,6 +275,7 @@ class MeasureRhythm(_Model):
 ```
 src/aiaomr/score/staff/
 ├── __init__.py     # 只导出 read_page / read_system / read_measure
+├── base.py         # Finding / Criterion 底座（判据的公共接口）
 ├── context.py      # 窗口、二值、谱线抹除、带边界
 ├── heads.py        # 符头：实心 / 空心
 ├── templates.py    # 模板自举 + NCC（只被 heads.py 调用）
@@ -290,6 +292,7 @@ src/aiaomr/score/staff/
 | 文件 | 职责 | 拥有的规则 | 禁止 |
 |---|---|---|---|
 | `__init__.py` | 对外门面 | — | 任何逻辑 |
+| `base.py` | `Finding` / `Criterion` 底座 | §5 | 任何判据实现 |
 | `context.py` | 建 `GeoContext`：五线谱带、二值化、按 run 抹谱线、行坐标 | SR-10..15 | 识别任何符号 |
 | `heads.py` | 符头候选与空心/实心判定 | SR-20、SR-21、SR-23、SR-24 | 读横梁、读符干长度以外的信息 |
 | `templates.py` | 本页自举 medoid 模板、`TM_CCOEFF_NORMED` 打分 | SR-22、ST-05 | 落盘模板、外部字体、随机初始化 |
@@ -321,13 +324,14 @@ src/aiaomr/score/staff/
 tests/staff/
 ├── test_context.py  test_heads.py   test_stems.py  test_beams.py
 ├── test_dots.py     test_rests.py   test_group.py  test_duration.py
-├── test_organize.py test_read.py    test_page_gate.py   # 真页面门
+├── test_organize.py test_staff_read.py  test_page_gate.py   # 真页面门
 tests/fixtures/heads/                 # 真图样本 + manifest.json（入库）
 tests/fixtures/heads/synthetic.py     # 合成图构造器（不落盘）
 tools/cut_head_fixtures.py            # 从真图裁样本的脚本，产物入库；重生成须同一命令、幂等
 ```
 
 一个源文件对应一个测试文件；`test_page_gate.py` 单独标记（离线、只读 fixture，禁止联网）。
+`read.py` 的测试文件叫 `test_staff_read.py`：tests/ 下不加 `__init__.py`，同名会与 `tests/measure/test_read.py` 撞。
 
 ### 12.4 产物、事件与指标
 

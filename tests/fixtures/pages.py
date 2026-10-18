@@ -15,10 +15,13 @@ def page_with_systems(
     last_frac: float = 1.0,
     margin: int = 60,
     system_gap: int = 160,
+    line_thickness: int = 1,
 ) -> np.ndarray:
     """画一张白底页面，每行系统 = 5 条谱线 + 4 条 TAB 线。
 
     `last_frac` < 0.5 用来模拟"最后一行只占页面三成多宽"的短末行。
+    `line_thickness` 用来模拟真实刻谱的谱线厚度（打印出来的谱线通常是 2–3 px，
+    只抹中心行会把上下边沿留在图里，`spec-staff.md` SR-11 要按整条线厚抹掉）。
     """
     arr = np.full((height, width), 255, dtype=np.uint8)
     y = margin
@@ -27,10 +30,12 @@ def page_with_systems(
         ink_width = int(round(width * last_frac)) if is_last else width - margin * 2
         x0 = margin
         for line in range(5):
-            arr[y + line * deg, x0:x0 + ink_width] = 0
+            top = y + line * deg
+            arr[top : top + line_thickness, x0 : x0 + ink_width] = 0
         tab_top = y + 4 * deg + int(round(tab_gap_deg * deg))
         for line in range(4):
-            arr[tab_top + line * tab_spacing, x0:x0 + ink_width] = 0
+            top = tab_top + line * tab_spacing
+            arr[top : top + line_thickness, x0 : x0 + ink_width] = 0
         y = tab_top + 3 * tab_spacing + system_gap
     return arr
 

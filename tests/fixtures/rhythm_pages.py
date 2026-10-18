@@ -60,7 +60,8 @@ def rhythm_measure(beats: list[dict], deg: int = 12, staff_top: int = 60, beat_g
             arr[int(stem_top) : int(note_y) + 1, int(stem_x) : int(stem_x) + max(1, deg // 10)] = 0
             stem_tops.append(stem_top)
             if beat.get("dots"):
-                _disc(arr, position + 1.25 * deg, note_y - 0.1 * deg, 0.16 * deg, 0.16 * deg)
+                # 附点画在符头右上方的一格空间里，不能压在谱线上（压在线上会被抹线吃掉）
+                _disc(arr, position + 1.25 * deg, note_y - 0.55 * deg, 0.16 * deg, 0.16 * deg)
             continue
         _disc(arr, position, note_y, 0.55 * deg, 0.38 * deg)
         stem_x = position + 0.5 * deg
@@ -68,7 +69,8 @@ def rhythm_measure(beats: list[dict], deg: int = 12, staff_top: int = 60, beat_g
         arr[int(stem_top) : int(note_y) + 1, int(stem_x) : int(stem_x) + max(1, deg // 10)] = 0
         stem_tops.append(stem_top)
         if beat.get("dots"):
-            _disc(arr, position + 1.25 * deg, note_y - 0.1 * deg, 0.16 * deg, 0.16 * deg)
+            # 附点画在符头右上方的一格空间里，不能压在谱线上（压在线上会被抹线吃掉）
+                _disc(arr, position + 1.25 * deg, note_y - 0.55 * deg, 0.16 * deg, 0.16 * deg)
 
     # 连梁：相邻两个都在 beamed 组里的音柱之间画粗横线
     index = 0

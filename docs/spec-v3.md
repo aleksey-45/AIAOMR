@@ -210,6 +210,7 @@ AIAOMR/
 | LAY-06 | 任何层**禁止** import `eval/` 与 `cli/`（依赖只能向下） |
 | LAY-07 | 厂商字面量（`deepseek`、`8192`、`1024`、`0.30` 等）**只允许**出现在 `providers/<name>/`、`configs/providers/`，以及 `configs/default.toml` 的 `provider.name` 一处 |
 | LAY-08 | 上述规则由 `tests/test_layers.py` 用 `ast` 静态扫描强制；违反即 CI 失败 |
+| LAY-09 | `score/staff/` 只许标准库、`numpy`、`cv2` 与 `kernel/`、其它 L3 模块；**禁止** import `providers/`、`measure/`、`writers/`（读谱层不调模型，`docs/spec-staff.md` §12.5） |
 
 #### 为什么把"读谱小节"独立成层
 
@@ -759,7 +760,8 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `staff.beam_coverage` | 0.85 | 横梁段覆盖率下限 |
 | `staff.beam_thickness_deg` | 0.3–0.9 | 横梁段厚度范围 |
 | `staff.layer_gap_deg` | 0.8 | 横梁分层 y 差阈值 |
-| `staff.dot_area_deg2` | 3–0.45·deg² | 附点面积范围 |
+| `staff.dot_min_area_px` | 3 | 附点的绝对面积下限（平方像素；抗噪） |
+| `staff.dot_max_area_deg2` | 0.45 | 附点面积上限 = 该值 × deg²（挡掉整行墨迹） |
 | `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |
 
 **`configs/providers/deepseek-flash.toml`**：`model`、`max_concurrency`、`retry_empty`、`retry_http`、`thinking`（开/关，当前默认关）、`max_tokens_rule`、`temperature`。

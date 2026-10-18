@@ -5,14 +5,12 @@ from __future__ import annotations
 import numpy as np
 
 from aiaomr.kernel.contracts import MeasureBox, System
-from aiaomr.score.geometry.context import measure_context
-from aiaomr.score.geometry.criteria import (
-    HeadCriterion,
-    BeamCriterion,
-    DotCriterion,
-    RestBarCriterion,
-    StemCriterion,
-)
+from aiaomr.score.staff.beams import BeamCriterion
+from aiaomr.score.staff.context import measure_context
+from aiaomr.score.staff.dots import DotCriterion
+from aiaomr.score.staff.heads import HeadCriterion
+from aiaomr.score.staff.rests import RestBarCriterion
+from aiaomr.score.staff.stems import StemCriterion
 from tests.fixtures.rhythm_pages import rhythm_measure
 
 DEG = 12
