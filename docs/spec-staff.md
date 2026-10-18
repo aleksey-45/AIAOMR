@@ -44,7 +44,7 @@
 `deg`（谱线间距），以及 `Skeleton` 里的 `timeSignatures`（只用于 §8 的隐含条件，不参与 §5–§7 的符号判定）。
 
 **输出**：`MeasureRhythm`（§10），每小节一个。它是**几何侧的 claim**，不是最终结论；最终结论由装配层
-把几何 claim 与模型读数合并后给出（§13）。
+把几何 claim 与模型读数合并后给出（§14）。
 
 输出里**禁止**出现音高、弦号、品位、调号判断，也禁止出现"猜测性质的时值"。
 
@@ -207,7 +207,7 @@
 | AR-11 | 横梁段端点配不上符干 |
 | AR-12 | 配对数超过符干数（重复检测） |
 
-原因编号是**统计口径**：`metrics.json` 里按编号计数（§8.2），用来判断下一步该补哪条判据。
+原因编号是**统计口径**：`metrics.json` 里按编号计数（`spec-v3.md` §8.2），用来判断下一步该补哪条判据。
 
 ## 10. 数据结构
 
@@ -241,7 +241,7 @@ class MeasureRhythm(_Model):
     deg: float = 0.0
 ```
 
-`confidence` 不是给模型看的，是给"要不要把这一拍标成争议点"用的（§13）；禁止用它做加权平均或软判决。
+`confidence` 不是给模型看的，是给"要不要把这一拍标成争议点"用的（§14）；禁止用它做加权平均或软判决。
 
 ## 11. 参数
 
@@ -264,7 +264,90 @@ class MeasureRhythm(_Model):
 | `staff.dot_area_deg2` | 3–0.45·deg² | 附点面积范围 |
 | `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |
 
-## 12. 测试与验收
+## 12. 目录、文件与产物归属
+
+本层是新目录 `score/staff/`（`spec-v3.md` §1.6 已登记）。**一个文件只拥有一类判据**；
+`read.py` 只做编排，不放判据、不放阈值。新增文件必须在本节登记一行，否则 code review 视为违规。
+
+### 12.1 源码
+
+```
+src/aiaomr/score/staff/
+├── __init__.py     # 只导出 read_page / read_system / read_measure
+├── context.py      # 窗口、二值、谱线抹除、带边界
+├── heads.py        # 符头：实心 / 空心
+├── templates.py    # 模板自举 + NCC（只被 heads.py 调用）
+├── stems.py        # 符干
+├── beams.py        # 横梁段与符尾
+├── dots.py         # 附点与断音点
+├── rests.py        # 休止三组 + 多小节休止条
+├── group.py        # 归属：配对、连梁图、组内顺序
+├── duration.py     # 时值判定表
+├── organize.py     # 拍格、三条否决、结果状态
+└── read.py         # 编排入口
+```
+
+| 文件 | 职责 | 拥有的规则 | 禁止 |
+|---|---|---|---|
+| `__init__.py` | 对外门面 | — | 任何逻辑 |
+| `context.py` | 建 `GeoContext`：五线谱带、二值化、按 run 抹谱线、行坐标 | SR-10..15 | 识别任何符号 |
+| `heads.py` | 符头候选与空心/实心判定 | SR-20、SR-21、SR-23、SR-24 | 读横梁、读符干长度以外的信息 |
+| `templates.py` | 本页自举 medoid 模板、`TM_CCOEFF_NORMED` 打分 | SR-22、ST-05 | 落盘模板、外部字体、随机初始化 |
+| `stems.py` | 符干候选、长度与方向 | SR-25..27 | 判时值 |
+| `beams.py` | 横梁段、分层、符尾钩数 | SR-28..32 | 判组内顺序（那是 `group.py`） |
+| `dots.py` | 附点、双附点、断音点排除 | SR-33..36 | 判休止符 |
+| `rests.py` | 休止三组、多小节休止条 | SR-37..39b | 判音符 |
+| `group.py` | 符头配符干、横梁连图、组内顺序、每干入射条数 | SR-40..46 | 判时值、改判据结论 |
+| `duration.py` | 类别 + 附点 → 时值（纯函数，无图像） | SR-50..57 | 读像素、读 `TimeSignature` |
+| `organize.py` | 拍格、SR-60..62 三条否决、`status` | §8 | 按拍格切图、调时值凑和 |
+| `read.py` | 编排：`context → 判据 → group → duration → organize` | — | 判据、阈值、模型调用 |
+
+**规则归属只有一处**：同一条 SR 只许在一个文件里实现；`read.py` 里出现阈值即违规。
+
+### 12.2 与既有目录的归属
+
+| 位置 | 归属什么 |
+|---|---|
+| `kernel/contracts.py` | `RhythmBeat` / `Abstain` / `MeasureRhythm` 三个数据结构（装配层也要读，所以放 kernel，不放 staff） |
+| `kernel/config.py` + `configs/default.toml` | `staff.*` 参数的读取与冻结（`StaffConfig`），禁止在 `staff/` 里读 toml |
+| `score/locate/systems.py` | 谱线行 run（R-10）；`staff/` 只读，不重新定位 |
+| `score/assemble/` | 消费 `MeasureRhythm`，与模型读数合并（§14） |
+| `cli.py` | 只加阶段编排（`staff` 阶段、事件转发），不放判据 |
+| `tests/test_layers.py` | 加 `score/staff` 的 import 白名单：只许 `numpy`、`cv2`、`kernel.*`、`score.locate.systems` |
+
+### 12.3 测试与样本
+
+```
+tests/staff/
+├── test_context.py  test_heads.py   test_stems.py  test_beams.py
+├── test_dots.py     test_rests.py   test_group.py  test_duration.py
+├── test_organize.py test_read.py    test_page_gate.py   # 真页面门
+tests/fixtures/heads/                 # 真图样本 + manifest.json（入库）
+tests/fixtures/heads/synthetic.py     # 合成图构造器（不落盘）
+tools/cut_head_fixtures.py            # 从真图裁样本的脚本，产物入库；重生成须同一命令、幂等
+```
+
+一个源文件对应一个测试文件；`test_page_gate.py` 单独标记（离线、只读 fixture，禁止联网）。
+
+### 12.4 产物、事件与指标
+
+| 项 | 内容 |
+|---|---|
+| 阶段 | 新增 `staff` 阶段，执行顺序在 `skeleton` 之后、`read` 之前；`--until staff` 可停 |
+| 产物 | `out/<song>/staff/rhythm.json`：`{"measures": [MeasureRhythm...], "summary": {...}}`，先写 `.tmp` 再 rename |
+| 幂等键 | `pageset.json` 的 sha256 + `staff.*` 参数 sha256；本层确定，命中即复用 |
+| 事件 | `staff.measure`（每小节：`index`、`status`、`beats`、`abstains` 摘要）、`staff.done`（`measures`、`ok`、`partial`、`unknown`、`abstainByReason{AR-xx: n}`、`durationMs`） |
+| 指标 | `metrics.json` 加 `stage=staff`：`durationMs`、`measures`、`ok`/`partial`/`unknown`、`abstains{AR-xx}` |
+
+事件名与字段遵循 `spec-v3.md` §10.3/§10.4；GUI 遇到未知事件必须忽略，所以加事件不破坏契约。
+
+### 12.5 依赖边界
+
+- 允许：`numpy`、`opencv-python-headless`（`cv2`）、`kernel.*`、`score.locate.systems`；
+- 禁止：`requests`、`providers.*`、`measure.*`、`writers.*`、任何 prompt 文件、任何模型调用；
+- **不新增第三方依赖**；需要新依赖时必须先改 `spec-v3.md` §1.4 与 `pyproject.toml`。
+
+## 13. 测试与验收
 
 ### 12.1 单元
 
@@ -296,7 +379,7 @@ class MeasureRhythm(_Model):
 
 同输入两次运行结果必须逐字段一致；模板自举必须确定（medoid 取法固定，禁止随机初始化、禁止 k-means）。
 
-## 13. 与其他层的接缝
+## 14. 与其他层的接缝
 
 | 接缝 | 规则 |
 |---|---|
@@ -308,7 +391,7 @@ class MeasureRhythm(_Model):
 
 报警不阻断：几何结论缺失或矛盾只是把该小节变成争议点，流程继续。
 
-## 14. 阶段二（本规范明确不做）
+## 15. 阶段二（本规范明确不做）
 
 三连音与连音数字、装饰音、双声部、跨小节连梁与连线、反复与跳房子、复杂拍号（5/8、7/8、混合拍号）、
 换谱号（中音/高音谱号）、键盘或打击乐谱表。这些在阶段二单独立规范，不允许在本层"顺手支持"。

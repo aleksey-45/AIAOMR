@@ -59,15 +59,24 @@
 实际谱线有 2–3 px 厚，剩下的上下边沿被横梁判据当成"两条覆盖 85% 以上的横线"，真页面上所有音符都被读成十六分——
 这是 0/7 的主因。按 `spec-v3.md` R-10 改成交出 run（起止行号、中心、厚度）。
 
-**新建 `score/staff/` 并把原型迁进去。** 窗口与掩码从 `score/geometry/context.py` 迁过来，
-判据从 `criteria.py` 迁过来，`locate/rhythm.py` 的装配逻辑迁到 `staff/duration.py`。
+**新建 `score/staff/` 并把原型迁进去。** 文件划分按 `docs/spec-staff.md` §12 建（`context` / `heads` /
+`templates` / `stems` / `beams` / `dots` / `rests` / `group` / `duration` / `organize` / `read`），
+一条判据一个文件；`kernel/contracts.py` 加 `RhythmBeat`/`Abstain`/`MeasureRhythm`，`kernel/config.py`
+加 `StaffConfig`（读 `configs/default.toml` 的 `staff.*`）。窗口与掩码从 `score/geometry/context.py` 迁过来，
+判据从 `criteria.py` 迁过来，`locate/rhythm.py` 的装配逻辑拆成 `group.py` + `duration.py` + `organize.py`。
 五线谱带按 `staff.band_margin_deg` 取，TAB 带单独建；抹线按 run 厚度（SR-11）。
+
+**接上阶段与事件。** CLI 加 `staff` 阶段（`skeleton` 之后、`read` 之前），产物写
+`out/<song>/staff/rhythm.json`（先 `.tmp` 再 rename），事件 `staff.measure` / `staff.done`，
+`metrics.json` 记 `stage=staff` 与 abstain 分布；`tests/test_layers.py` 加 `score/staff` 的 import 白名单。
+任务 0 先用固定返回值跑通阶段与事件，判据在任务 2/3 填。
 
 **真值尺子。** `out/p1/*/truth.json` 是错的：每小节多出三个四分休止（`打上花火.gp5` 是标准 4/4，
 每小节四个四分），谱面和 GP5 都没有这些休止。重新用 `tools/dump.mjs` 导出；`dump.mjs` 顺便导出每小节拍号，
 `eval/load_truth` 校验每小节时值之和等于拍号，不等就 `EvalError`，宁可停也不量错。
 
-验收：真页面上一个已知的连梁组只数出一条横梁；符干顶端完整；重导的真值每小节时值和为 32 tick。
+验收：真页面上一个已知的连梁组只数出一条横梁；符干顶端完整；重导的真值每小节时值和为 32 tick；
+`aiaomr staff --until staff` 能跑完并只产事件、不联网。
 
 ### 1. 真图样本（半天）
 

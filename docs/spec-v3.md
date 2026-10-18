@@ -427,7 +427,7 @@ AIAOMR/
 
 ### 2.10 `cli` —— 唯一入口
 
-子命令：`ingest`、`locate`、`skeleton`、`read`、`verify`、`adjudicate`、`assemble`、`build`、`eval`、`run`。
+子命令：`ingest`、`locate`、`skeleton`、`staff`、`read`、`verify`、`adjudicate`、`assemble`、`build`、`eval`、`run`。
 
 | 全局参数 | 作用 |
 |---|---|
@@ -446,6 +446,8 @@ AIAOMR/
 
 **职责**：把定位好的页面读数成"每个小节的符号类别与时值"，给出 `MeasureRhythm` 结论和 abstain 理由。
 完整规则见配套规范 **`docs/spec-staff.md`**（编号 SR-xx、AR-xx），本节只定它在系统里的位置和硬边界。
+目录、文件划分与产物归属见该文件 §12；本层是**独立阶段** `staff`（`skeleton` 之后、`read` 之前，不联网），
+产物写 `out/<song>/staff/rhythm.json`，事件为 `staff.measure` / `staff.done`。
 
 **输入**：`arr`、`System`（含谱线行 run）、`MeasureBox`、`deg`、`Skeleton.timeSignatures`
 **输出**：`MeasureRhythm`（§3.2）
@@ -915,6 +917,7 @@ out/<song>/
 ├── input.json          # 输入登记（路径、sha256、class）
 ├── pageset.json        # 定位层结果
 ├── skeleton.json
+├── staff/rhythm.json   # 读五线谱结果（每小节 MeasureRhythm + summary）
 ├── crops/              # 实际送出的裁片（证据留存；retain.crops=false 时可关）
 ├── calls/              # <callId>.req.json / <callId>.resp.json
 ├── measures/<n>.json   # 每小节读取结果（含 call 引用）
@@ -946,7 +949,7 @@ out/<song>/
 
 | 字段 | 说明 |
 |---|---|
-| `stage` | `locate / skeleton / read / fuse / adjudicate / assemble / build` |
+| `stage` | `locate / skeleton / staff / read / fuse / adjudicate / assemble / build` |
 | `durationMs` / `p95Ms` | 阶段耗时（按系统统计，取 p95） |
 | `calls` / `retries` / `emptyReturns` | 调用数、重试数、空返回数 |
 | `inputTokens` / `outputTokens` / `cachedTokens` | 来自 `usage` |
@@ -978,7 +981,7 @@ out/<song>/
 - 阈值在 `configs/thresholds.toml` 先声明
 - `--selftest` 通过后才允许计分
 - 按输入档分档报分，**禁止**用"支持图片"一句话覆盖
-- 五线谱读的分组交叉表门（`二分 → 四分` 必须为零）与 abstain 原因分布见 `docs/spec-staff.md` §12
+- 五线谱读的分组交叉表门（`二分 → 四分` 必须为零）与 abstain 原因分布见 `docs/spec-staff.md` §13
 - **真值必须现导并校验**：`tools/dump.mjs` 导出的 JSON 要带每小节拍号；`load_truth` 校验每小节时值之和等于拍号，不通过即 `EvalError`。旧产物 `out/p1/*/truth.json` 已确认不可信（每小节多出三个四分休止），不复用
 
 ### 9.3 语料
@@ -1034,7 +1037,7 @@ out/<song>/
 |---|---|
 | `v` | 事件 schema 版本；破坏性变更必须升 |
 | `seq` | 从 1 单调递增，用于丢行检测与排序 |
-| `stage` | ∈ `ingest / locate / skeleton / read / verify / adjudicate / assemble / build / audit / eval / run` |
+| `stage` | ∈ `ingest / locate / skeleton / staff / read / verify / adjudicate / assemble / build / audit / eval / run` |
 | `level` | ∈ `debug / info / warn / error` |
 | `event` | 点分命名 `域.动作`；**GUI 遇到未知事件名必须忽略，不得崩溃** |
 | `data` | 事件专属字段；遵循"小、平、可增量渲染" |
@@ -1069,6 +1072,13 @@ out/<song>/
 | event | 何时 | `data` |
 |---|---|---|
 | `skeleton.done` | 一次调用后 | `title`、`artist`、`tempo`、`tuning[]`、`stringCount`、`timeSignature`、`measureCount`、`defaulted[]` |
+
+**staff 级（读五线谱，不联网）**
+
+| event | 何时 | `data` |
+|---|---|---|
+| `staff.measure` | 每小节读完 | `index`、`status`（ok/partial/unknown）、`beats`（`duration`/`dots`/`rest`/`heads` 摘要）、`abstains[]`（AR 编号 + 拍号） |
+| `staff.done` | 阶段结束 | `measures`、`ok`、`partial`、`unknown`、`abstainByReason{AR-xx}`、`durationMs` |
 
 **read 级（每次模型调用都有）**
 
