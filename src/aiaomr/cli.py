@@ -140,6 +140,7 @@ def _make_provider(args, cfg: Config, out_dir: Path):
     return get_provider(
         args.provider, cfg, api_key=args.api_key,
         offline_dir=replay if args.provider == "stub" else None,
+        record_dir=None if args.provider == "stub" else replay,
     )
 
 

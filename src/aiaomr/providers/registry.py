@@ -15,6 +15,7 @@ def get_provider(
     cfg: Config,
     api_key: str | None = None,
     offline_dir: str | Path | None = None,
+    record_dir: str | Path | None = None,
 ) -> VisionProvider:
     """`name` 必须与 `configs/providers/<name>.toml` 对应；未知名字直接报错。"""
     normalized = name.replace("-", "_")
@@ -25,5 +26,5 @@ def get_provider(
     if normalized == "deepseek_flash":
         if offline_dir is not None:
             return StubClient(CAPS, offline_dir)
-        return DeepSeekClient(CAPS, api_key=api_key)
+        return DeepSeekClient(CAPS, api_key=api_key, record_dir=record_dir)
     raise ConfigError(f"未注册的 provider：{name}")
