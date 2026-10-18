@@ -68,3 +68,36 @@ crops = true
 [run]
 # 阻断时等待在途请求返回的宽限，毫秒（用于准确记账）。
 inflight_grace_ms = 30000
+
+[staff]
+# 读五线谱层的阈值（docs/spec-staff.md §11）。长度、间距一类量的单位都是 deg
+# （压缩后的有效谱线间距）；只有抹线余量是像素、附点面积下限是平方像素。
+# 这些只是真图标定前的初值，改动必须写清"改了哪个值、哪张样本、前后各错几拍"。
+#
+# 五线谱带上下余量（SR-10/SR-12）。
+band_margin_deg = 4.0
+# 抹谱线时按整条线厚再加的抗锯齿余量，像素（SR-11）。
+line_erase_pad_px = 1
+# 符头宽度范围，deg（SR-20）。
+head_w_deg = [0.7, 1.9]
+# 符头高度范围，deg（SR-20）。
+head_h_deg = [0.3, 1.2]
+# 填充率低于此为空心；高于下面那一项为实心；落在中间 abstain（AR-02，SR-21）。
+head_fill_hollow_max = 0.55
+head_fill_filled_min = 0.75
+# 模板匹配（TM_CCOEFF_NORMED）采纳下限（SR-22）。
+template_ncc_min = 0.75
+# 符干长度范围，deg（SR-25）。
+stem_len_deg = [2.0, 5.5]
+# 横梁段覆盖率下限（SR-28）。
+beam_coverage = 0.85
+# 横梁段厚度范围，deg（SR-28）。
+beam_thickness_deg = [0.3, 0.9]
+# 横梁分层 y 差阈值，deg（SR-29）。
+layer_gap_deg = 0.8
+# 附点面积下限，平方像素（规格 §5 写 "3–0.45·deg²" 的左端，SR-34）。
+dot_min_area_px = 3.0
+# 附点面积上限的 deg² 倍数，运行时上限 = dot_max_area_deg2 × deg²（SR-34）。
+dot_max_area_deg2 = 0.45
+# 符头与符干配对的最大距离，deg（SR-40）。
+pair_max_deg = 1.2

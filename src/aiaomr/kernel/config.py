@@ -142,6 +142,33 @@ class RunConfig:
 
 
 @dataclass(frozen=True)
+class StaffConfig:
+    """§5 staff 组：读五线谱层的全部阈值（`spec-staff.md` §11）。
+
+    长度、间距一类量的单位都是 deg（压缩后谱线间距），只有抹线余量是像素、
+    附点面积下限是平方像素；单位写在字段名里，免得调用方猜。
+    阈值只是初始值，改动必须按 `spec-staff.md` §11 写清"改了哪个值、哪张样本、前后各错几拍"。
+    """
+
+    band_margin_deg: float
+    line_erase_pad_px: int
+    head_w_deg: tuple[float, float]
+    head_h_deg: tuple[float, float]
+    head_fill_hollow_max: float
+    head_fill_filled_min: float
+    template_ncc_min: float
+    stem_len_deg: tuple[float, float]
+    beam_coverage: float
+    beam_thickness_deg: tuple[float, float]
+    layer_gap_deg: float
+    # 规格 §5 把附点面积写成 "3–0.45·deg²"：下限是平方像素常数，
+    # 上限是 deg² 的倍数，所以拆成两个字段，运行时上限 = dot_max_area_deg2 × deg²。
+    dot_min_area_px: float
+    dot_max_area_deg2: float
+    pair_max_deg: float
+
+
+@dataclass(frozen=True)
 class Config:
     """合并后的不可变配置。按 §5 的分组用属性访问，例如 `cfg.crop.target_mp_max`。"""
 
@@ -156,6 +183,7 @@ class Config:
     skeleton: SkeletonConfig
     structure: StructureConfig
     run: RunConfig
+    staff: StaffConfig
 
 
 # 值的形状标签。只描述类型，不带默认值：默认值只在 TOML 里写一份。
@@ -165,6 +193,7 @@ _FLOAT = "float"
 _BOOL = "bool"
 _DECIMAL = "decimal"
 _INT_PAIR = "int_pair"
+_FLOAT_PAIR = "float_pair"
 
 # 参数登记表。逐项对应规格 §5 的参数表：不在表里的名字一律报错，不许静默忽略。
 _SCHEMA: dict[str, str] = {
@@ -196,6 +225,23 @@ _SCHEMA: dict[str, str] = {
     "skeleton.title_from_filename": _BOOL,
     "structure.change_min_run": _INT,
     "run.inflight_grace_ms": _INT,
+    # spec-staff.md §11：读五线谱层的阈值。
+    # 长度、间距的单位都是 deg（压缩后谱线间距），只有抹线余量与附点面积下限不是。
+    "staff.band_margin_deg": _FLOAT,
+    "staff.line_erase_pad_px": _INT,
+    "staff.head_w_deg": _FLOAT_PAIR,
+    "staff.head_h_deg": _FLOAT_PAIR,
+    "staff.head_fill_hollow_max": _FLOAT,
+    "staff.head_fill_filled_min": _FLOAT,
+    "staff.template_ncc_min": _FLOAT,
+    "staff.stem_len_deg": _FLOAT_PAIR,
+    "staff.beam_coverage": _FLOAT,
+    "staff.beam_thickness_deg": _FLOAT_PAIR,
+    "staff.layer_gap_deg": _FLOAT,
+    # 规格 §5 的 dot 一行写成 "3–0.45·deg²"：下限是平方像素，上限是 deg² 的倍数。
+    "staff.dot_min_area_px": _FLOAT,
+    "staff.dot_max_area_deg2": _FLOAT,
+    "staff.pair_max_deg": _FLOAT,
 }
 
 _GROUPS: tuple[tuple[str, type], ...] = (
@@ -210,6 +256,7 @@ _GROUPS: tuple[tuple[str, type], ...] = (
     ("skeleton", SkeletonConfig),
     ("structure", StructureConfig),
     ("run", RunConfig),
+    ("staff", StaffConfig),
 )
 
 
@@ -372,6 +419,18 @@ def _coerce(kind: str, value: Any, where: str) -> Any:
         if low > high:
             raise ConfigError(f"{where} 的下限 {low} 大于上限 {high}")
         return (low, high)
+    if kind is _FLOAT_PAIR:
+        # 区间里每项都必须是真的数字；bool 是 int 的子类，显式挡掉。
+        if (
+            not isinstance(value, (list, tuple))
+            or len(value) != 2
+            or any(type(item) not in (int, float) for item in value)
+        ):
+            raise ConfigError(f"{where} 必须是两个数字组成的区间 [下限, 上限]，拿到 {value!r}")
+        low, high = float(value[0]), float(value[1])
+        if low > high:
+            raise ConfigError(f"{where} 的下限 {low} 大于上限 {high}")
+        return (low, high)
     raise ConfigError(f"内部错误：{where} 的形状 {kind!r} 未登记")
 
 
@@ -397,6 +456,7 @@ __all__ = [
     "RetainConfig",
     "RunConfig",
     "SkeletonConfig",
+    "StaffConfig",
     "StructureConfig",
     "load_config",
     "repo_root",

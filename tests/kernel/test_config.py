@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from aiaomr.kernel.config import load_config
+from aiaomr.kernel.config import ConfigError, StaffConfig, load_config
 
 
 def test_default_values_from_toml():
@@ -122,3 +122,87 @@ def test_budget_rounded_half_up_to_four_places():
     cfg = load_config("deepseek_flash")
     assert str(cfg.budget.cny_per_8measures) == "0.0150"
     assert cfg.budget.cny_per_8measures.as_tuple().exponent == -4
+
+
+# ---- staff.* 参数（spec-staff.md §11、spec-v3.md §5 参数表） ----
+
+
+def test_staff_defaults_match_the_spec_table():
+    """14 个 staff.* 参数的初值，逐项按规格 §5 写死（数值不是"大约"）。"""
+    cfg = load_config("deepseek_flash")
+    staff = cfg.staff
+
+    assert isinstance(staff, StaffConfig)
+
+    assert staff.band_margin_deg == 4.0
+    assert staff.line_erase_pad_px == 1
+    assert staff.head_w_deg == (0.7, 1.9)
+    assert staff.head_h_deg == (0.3, 1.2)
+    assert staff.head_fill_hollow_max == 0.55
+    assert staff.head_fill_filled_min == 0.75
+    assert staff.template_ncc_min == 0.75
+    assert staff.stem_len_deg == (2.0, 5.5)
+    assert staff.beam_coverage == 0.85
+    assert staff.beam_thickness_deg == (0.3, 0.9)
+    assert staff.layer_gap_deg == 0.8
+    # 规格 §5 里 dot 一行写成 "3–0.45·deg²"，按两个字段实现：
+    # 面积下限是 3 平方像素，上限是 deg² 的 0.45 倍。
+    assert staff.dot_min_area_px == 3.0
+    assert staff.dot_max_area_deg2 == 0.45
+    assert staff.pair_max_deg == 1.2
+
+    # 区间字段读出来是 (float, float) 二元组，标量是 float/int
+    for pair in (staff.head_w_deg, staff.head_h_deg, staff.stem_len_deg, staff.beam_thickness_deg):
+        assert isinstance(pair, tuple) and len(pair) == 2
+        assert all(isinstance(item, float) for item in pair)
+    assert isinstance(staff.line_erase_pad_px, int)
+    for scalar in (
+        staff.band_margin_deg,
+        staff.head_fill_hollow_max,
+        staff.head_fill_filled_min,
+        staff.template_ncc_min,
+        staff.beam_coverage,
+        staff.layer_gap_deg,
+        staff.dot_min_area_px,
+        staff.dot_max_area_deg2,
+        staff.pair_max_deg,
+    ):
+        assert isinstance(scalar, float)
+
+    # 冻结：staff 组不许在运行时被改
+    with pytest.raises(FrozenInstanceError):
+        cfg.staff.band_margin_deg = 6.0
+
+
+def test_staff_float_pair_rejects_reversed_range():
+    """float_pair 和 int_pair 一样：下限大于上限就是配置错误。"""
+    with pytest.raises(ConfigError) as excinfo:
+        load_config("deepseek_flash", overrides={"staff.head_w_deg": [1.9, 0.7]})
+    assert "staff.head_w_deg" in str(excinfo.value)
+
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.head_w_deg": 0.7})  # 不是区间
+
+    # 合法的覆盖能生效，命令行优先级最高
+    overridden = load_config("deepseek_flash", overrides={"staff.head_w_deg": [0.8, 2.0]})
+    assert overridden.staff.head_w_deg == (0.8, 2.0)
+
+
+def test_staff_unknown_key_is_rejected():
+    """未登记到 §5 参数表的名字一律报错，不许静默忽略。"""
+    with pytest.raises(ConfigError) as excinfo:
+        load_config("deepseek_flash", overrides={"staff.bogus_key": 1})
+    assert "staff.bogus_key" in str(excinfo.value)
+
+
+def test_staff_mistyped_values_are_rejected():
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.band_margin_deg": "4.0"})
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.line_erase_pad_px": 1.5})
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.head_w_deg": [0.7]})
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.head_w_deg": "0.7-1.9"})
+    with pytest.raises(ConfigError):
+        load_config("deepseek_flash", overrides={"staff.line_erase_pad_px": True})
