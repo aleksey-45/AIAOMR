@@ -126,7 +126,7 @@ AIAOMR/
 
 | 目录 | 层 | 允许放什么 | **禁止**放什么 |
 |---|---|---|---|
-| `kernel/` | 内核 | 纯数据类、Protocol、错误码、常量 | IO、HTTP、CV、任何厂商字面量 |
+| `kernel/` | 内核 | 纯数据类、Protocol、错误码、常量、配置加载（只读 `configs/*.toml`，这是 kernel 唯一的文件 IO 例外） | HTTP、网络、图像处理、业务判定、任何厂商字面量 |
 | `providers/base.py` + `registry.py` | L1 | Protocol、能力声明、注册表、异常类型 | 具体厂商代码、业务逻辑 |
 | `providers/deepseek_flash/` | L1 | 请求构造、能力值、计费、prompt 差异、README | 裁切策略、验算、装配、导出 |
 | `measure/` | L2 | 裁切规划、小节 schema、单次调用的编排 | 页/系统级结构、IR 组装、文件写出 |
@@ -139,14 +139,11 @@ AIAOMR/
 | `configs/providers/<name>.toml` | — | 模型名、并发、预算、重试、thinking | 业务阈值 |
 | `corpus/` | — | 真图、真值 `.gp`、合成语料 | 运行产物 |
 | `out/<song>/` | — | 运行产物（IR、calls、crops、gp5） | 应入库的东西 |
-| `src/aiaomr/eval/` | 打分、语料门、`--selftest` | 分析逻辑混进产品路径 | 否 |
-| `configs/default.toml` | 与 provider 无关的参数 | 厂商参数 | 否 |
-| `configs/providers/<name>.toml` | 模型名、并发、预算、重试策略 | 业务阈值 | 是 |
-| 各层 `prompts/`（L2/L3） | 与 provider 无关的公共约束 | 厂商特定口径 | 否 |
-| `prompts/<provider>/` | 覆盖 base 的条目 | 复制整份 base（只写差异） | 是 |
-| `fixtures/<provider>/` | 录制好的请求/响应 | 真值、密钥 | 是 |
-| `corpus/` | 真图、真值 `.gp`、合成语料 | 运行产物 | 否 |
-| `out/<song>/` | 运行产物（IR、calls、crops、gp5） | 应入库的东西 | 否 |
+| 各层 `prompts/`（L2/L3） | L2/L3 | 与 provider 无关的公共约束 | 厂商特定口径 |
+| `providers/<name>/prompts/` | L1 | 只写差异，覆盖 base 对应段落 | 复制整份 base |
+| `fixtures/<provider>/` | — | 录制好的请求/响应 | 真值、密钥 |
+| `corpus/` | — | 真图、真值 `.gp`、合成语料 | 运行产物 |
+| `out/<song>/` | — | 运行产物（IR、calls、crops、gp5） | 应入库的东西 |
 
 **落盘硬规则**：新增任何目录，必须在本表登记一行；未登记的目录在 code review 时视为违规。
 
@@ -206,13 +203,13 @@ AIAOMR/
 
 | ID | 规则 |
 |---|---|
-| LAY-01 | `kernel/` **禁止** import 任何其他包（除标准库与 pydantic） |
+| LAY-01 | `kernel/` **禁止** import 任何其他包（除标准库、pydantic，以及 Python 3.10 上读 TOML 用的 `tomli`） |
 | LAY-02 | `providers/` **禁止** import `measure/`、`score/`、`writers/` |
 | LAY-03 | `measure/` **禁止** import `score/`、`writers/`；**禁止**直接 `import requests`（必须经 L1） |
 | LAY-04 | `score/` **禁止** import `writers/`；**禁止**直接发 HTTP |
 | LAY-05 | `writers/` **禁止** import `score/`、`measure/`、`providers/` |
 | LAY-06 | 任何层**禁止** import `eval/` 与 `cli/`（依赖只能向下） |
-| LAY-07 | 厂商字面量（`deepseek`、`8192`、`1024`、`0.30` 等）**只允许**出现在 `providers/<name>/` 与 `configs/providers/` |
+| LAY-07 | 厂商字面量（`deepseek`、`8192`、`1024`、`0.30` 等）**只允许**出现在 `providers/<name>/`、`configs/providers/`，以及 `configs/default.toml` 的 `provider.name` 一处 |
 | LAY-08 | 上述规则由 `tests/test_layers.py` 用 `ast` 静态扫描强制；违反即 CI 失败 |
 
 #### 为什么把"读谱小节"独立成层
@@ -336,7 +333,7 @@ AIAOMR/
 | `supported_formats` | JPEG / PNG / GIF / WebP | 编码选择 |
 | `supports_json_mode` | true（**偶发空返回**） | 输出契约 |
 | `supports_detail_param` | true（`low` 会降到 512²，**禁止**使用） | 裁片策略 |
-| `supports_thinking_toggle` | true（默认开） | 成本/质量开关 |
+| `supports_thinking_toggle` | true（**当前生产默认关**：P0 实测思考在整系统读数上失控，见 `docs/p0-results.md`） | 成本/质量开关 |
 | `max_concurrency` | 2500 | 并发上限 |
 | `pricing` | **人民币/百万 tokens**：输入 miss 1 元（谷）/2 元（峰）、输入 hit 0.02 元（谷）/0.04 元（峰）、输出 4 元（谷）/8 元（峰） | 成本核算（**一律按谷价归一化**） |
 | `peak_hours` | 峰时 = **北京时间**周一至周五 9:00–12:00、14:00–18:00（不含中国法定节假日）；其余全部为空闲（谷时），谷价 = 峰价 1/2 | 成本核算 |
@@ -361,11 +358,12 @@ AIAOMR/
 | ID | 规则 |
 |---|---|
 | RD-01 | 裁切单位**必须**是完整系统（五线谱带 + TAB 带） |
-| RD-02 | 单系统像素 >1.6 MP 时**必须**按小节边界等分为 k 份，`k = ceil(P / 1.6MP)`，每份 ≤1.6 MP |
+| RD-02 | 单系统像素 >1.6 MP 时**必须**按小节边界等分为 k 份，`k = ceil(P / 1.6MP)`，每份 ≤1.6 MP；单系统像素 <1.6 MP 时**必须**上采样到 1.6 MP（P0 实测：0.88 MP 直读只有 5/7 小节对，上采样后 7/7，见 `docs/p0-results.md`） |
 | RD-03 | 拆分后第 2..k 份**必须**在左侧拼接同系统的谱号/调号条（宽 40–100 px），并在 prompt 中说明"左侧是引用条" |
 | RD-04 | 任何裁片**必须**包含完整谱号区；不含者**禁止**送出 |
 | RD-05 | 单次调用请求的小节数 ≤8 |
 | RD-06 | 模型输出**必须**同时含 `string`、`fret` 与 `pitch`；缺任一字段即 `E_VLM_SCHEMA` |
+| RD-06b | 模型输出的 `string` 用 **Guitar Pro 习惯**：`1` = 最上面那条 TAB 线（最高音弦），`stringCount` = 最下面那条。L2 收到后**必须**翻成 IR 约定（`ir_string = stringCount - model_string + 1`）。提示词按 GP 习惯描述并给一个上下不对称的例子；**禁止**假设模型会按 IR 编号输出——P0 实测它会稳定地按 GP 编号，提示词改不动（见 `docs/p0-results.md`） |
 | RD-07 | 模型返回的小节号必须与请求一致，顺序不符即 `E_VLM_SCHEMA` |
 | RD-08 | 对外**只**暴露 `read_systems(tasks: list[MeasureTask]) -> list[MeasureResult]`；**禁止**把 provider 客户端、裁片路径、原始响应泄漏给 L3 |
 | RD-09 | 裁切上限**必须**取 `min(config, caps)`；`caps` 缺失即启动失败（V-12） |
@@ -410,7 +408,7 @@ AIAOMR/
 | ID | 规则 |
 |---|---|
 | E-01 | 写出**必须**经 `validate → build → verify` 三步，任一步失败 → 对应错误码，不产出文件 |
-| E-02 | `string` 翻转只允许发生在 `writers/gp5/` 一处（IR 1=最低弦 → GP 1=最高弦） |
+| E-02 | IR→GP 的弦号翻转**只允许**发生在 `writers/gp5/` 一处（IR 1=最低弦 → GP 1=最高弦）；模型输出(GP)→IR 的翻转**只允许**发生在 `measure/` 一处（RD-06b） |
 | E-03 | `title/artist/album/tabber` **必须**逐字段 `encode(cp936)`，编不进 → `E_BUILD_VALIDATE` |
 | E-04 | 中文标题**禁止**依赖 PyGuitarPro 自身往返验证（它测不出编码问题） |
 | E-05 | 审计 `tools/audit.mjs` **必须**检查不变量 A（音高恒等式）与 B（小节时值），任一非零即报告失败 |
@@ -494,7 +492,7 @@ AIAOMR/
         "string": 1, "fret": 6, "tie": false,
         "tieFromPrevious": false,                  // 无印刷数字的音头必须为 true（A4b）
         "digit": { "value": "6", "glyphs": 1, "bound": true },  // 印刷数字绑定；无数字时省略
-        "techniques": ["slide"],                   // 枚举见 §3.4
+        "techniques": ["slide_in_from_below"],       // 枚举见 §3.4
         "pitch": 43,                               // 权威值：由 tuning[string-1]+fret 计算
         "pitchClaim": 43                           // 模型从五线谱读到的 MIDI，仅用于 A2 比对
       }],
@@ -539,6 +537,8 @@ AIAOMR/
 | `Crop` | `path`、`box=[l,t,r,b]`、`kind`（system / reread / sheet）、`px`、`deg`、**`has_clef: bool`**（不含谱号区的裁片禁止送出，RD-04） |
 | `MeasureTask` | `system`、`measures: list[MeasureBox]`、`crop`、`hints`、`callId` |
 | `MeasureRead` | `index`、`beats`、`unreadable` |
+| `MeasureResult` | `callId`、`reads: list[MeasureRead]`、`usage`（可选，原始用量）、`errorCode`（可选，系统级失败时记录） |
+| `Skeleton` | `timeSignatures`、`keySignatures`、`tempos`、`tuning`、`stringCount`、`title`、`artist`、`provenance`、`clefTranspose`（低音谱号固定 −12）、`fretCount`（默认 24） |
 | `Judgement` | 见 IR |
 
 ### 3.3 错误码
@@ -699,9 +699,9 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `provider.name` | `deepseek_flash` | 当前唯一实现；其余名字启动即报错 |
-| `crop.target_mp_min` | 0.9 | 裁片像素下限 |
-| `crop.target_mp_max` | 1.6 | 裁片像素上限 |
-| `crop.max_side_px` | 2500 | 长边上限；运行时再与 `caps.max_side_px` 取 min |
+| `crop.target_mp_min` | 1.6 | 裁片像素下限；低于此值**上采样**到 1.6 MP（P0 实测，见 `docs/p0-results.md`） |
+| `crop.target_mp_max` | 1.6 | 裁片像素上限；高于此值按小节边界拆分 |
+| `crop.max_side_px` | 4096 | 长边上限；运行时再与 `caps.max_side_px` 取 min |
 | `crop.max_measures_per_call` | 8 | 单次调用小节数 |
 | `crop.header_strip_px` | 40–100 | 拆分裁片的引用条宽度（按 deg 取 `4×deg`，clamp 到该区间） |
 | `read.min_deg_eff` | 12 | 压缩后有效谱线间距下限；低于此值记录 WARN（不阻断） |
@@ -720,7 +720,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `structure.change_min_run` | 3 | A11/A12 聚类检测所需的最小连续小节数 |
 | `run.inflight_grace_ms` | 30000 | 阻断时等待在途请求返回的宽限（用于准确记账） |
 
-**`configs/providers/deepseek-flash.toml`**：`model`、`max_concurrency`、`retry_empty`、`retry_http`、`thinking`（开/关）、`max_tokens_rule`、`temperature`。
+**`configs/providers/deepseek-flash.toml`**：`model`、`max_concurrency`、`retry_empty`、`retry_http`、`thinking`（开/关，当前默认关）、`max_tokens_rule`、`temperature`。
 
 **禁止**在代码中出现未列入本表的魔数；新增参数必须先进本表。
 
@@ -1187,7 +1187,7 @@ python -m aiaomr.cli eval --provider deepseek_flash --report out/eval/deepseek.j
 |---|---|---|
 | 调用次数/首 | ≤ 24 | 报告 WARN（不阻断） |
 | 墙钟/首（107 小节） | ≤ 20 s | 报告 WARN |
-| 成本 | **每 8 小节 ≤ ¥0.0150**（硬上限，**谷价**+thinking 口径；thinking 关≈0.0047，开≈0.0127）；单首 107 小节 ≈ ¥0.07–0.18 | 单次调用超限或累计超派生上限即 `E_BUDGET_EXCEEDED` |
+| 成本 | **每 8 小节 ≤ ¥0.0150**（硬上限，**谷价**口径）。P0 实测（thinking 关、1.6 MP 裁片）：一次调用约 ¥0.0035，折合每 8 小节约 ¥0.004；thinking 开在整系统读数上会失控（16k reasoning token 仍无输出），当前默认关 | 单次调用超限或累计超派生上限即 `E_BUDGET_EXCEEDED` |
 | 峰值内存 | ≤ 1.5 GB | 报告 WARN |
 
 ---

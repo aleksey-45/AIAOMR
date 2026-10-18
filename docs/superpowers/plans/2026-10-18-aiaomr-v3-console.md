@@ -44,10 +44,10 @@
 2. 不允许引入 homr、oemer、Audiveris，也不允许引入 litellm 这类"假装所有模型接口都长一样"的中间层。
 3. 只接一个模型：DeepSeek V4.1-Flash，调用时模型名写 `deepseek-flash`，图片清晰度参数固定传 `original`。图片只能放在 user 消息里，不能放进 system 消息。
 4. 每次请求都要开 JSON 模式，提示词里必须出现 `json` 这个词并且给一个输出示例。一次请求最多 14 张图，单张图不超过 32 MiB。
-5. 一张裁片控制在 0.9 到 1.6 百万像素之间，长边不超过 2500 像素。一次调用最多读 8 个小节。裁片必须包含完整的谱号和调号区域。
+5. 裁片统一缩放到 1.6 百万像素：比它小的上采样，比它大的按小节边界拆开；长边上限 4096 像素。一次调用最多读 8 个小节。裁片必须包含完整的谱号和调号区域。
 6. 成本预算按"每 8 小节"算，上限是 0.0150 元人民币，按闲时价格，保留四位小数。比较成本时一律换算成闲时价格，不然同一件事跑在高峰时段会被误判成超支。
 7. `read.min_deg_eff` 取 12。它指的是裁片被模型压缩之后，谱线之间还剩多少像素；低于这个数只记一条警告，不中断。
-8. 中间数据的版本号是 3.0。弦号统一约定第 1 弦是最低音弦；写成 gp5 时要翻成"第 1 弦是最高音弦"，这个翻转只允许出现在 `writers/gp5/` 里。
+8. 中间数据的版本号是 3.0。弦号约定第 1 弦是最低音弦。模型返回的弦号按 Guitar Pro 习惯（1 是最上面那条 TAB 线），在 `measure/` 里翻一次；写成 gp5 时再翻成"第 1 弦是最高音弦"，这个翻转只允许出现在 `writers/gp5/` 里。
 9. 不读总小节数。小节总数直接取实际读到的小节个数。
 10. 全局参数分四级：拍号和调弦、弦数是必须读的；调号次之；速度再次；曲名和作者最不重要。任何一项读不出来都不算失败，按缺省值补上，并把来源记在 `skeletonProvenance` 里。
 11. 四层之间的依赖关系由 `tests/test_layers.py` 扫描 import 来强制检查。模型名字、各家接口的特殊参数这类东西，只能出现在 `providers/` 和 `configs/providers/` 目录里。
@@ -134,10 +134,10 @@ AIAOMR/
 
 新建 `scripts/p0_probe.py` 和 `docs/p0-results.md`。改 `configs/default.toml` 里的三个值。
 
-- [ ] **1. 写脚本。** 取统一小节，用三种清晰度各问一遍，再用一张图和六张图两种拿法各问三遍；记下用量、耗时、能不能解析、读出来的音符对不对。
-- [ ] **2. 跑脚本。** 需要 `DEEPSEEK_API_KEY`，命令是 `python scripts/p0_probe.py --out docs/p0-results.md`。
-- [ ] **3. 按结果改配置。** 把裁片大小、最低清晰度、每次调用的小节数改成实测出来最划算的值，并在实测记录里写清楚为什么这么定。
-- [ ] **4. 提交。** `git add scripts/p0_probe.py docs/p0-results.md configs/default.toml && git commit -m "chore: P0 probe results and calibrated crop params"`
+- [x] **1. 写脚本。** 取统一小节，用三种清晰度各问一遍，再用一张图和六张图两种拿法各问三遍；记下用量、耗时、能不能解析、读出来的音符对不对。
+- [x] **2. 跑脚本。** 需要 `DEEPSEEK_API_KEY`，命令是 `python scripts/p0_probe.py --out docs/p0-results.md`。
+- [x] **3. 按结果改配置。** 把裁片大小、最低清晰度、每次调用的小节数改成实测出来最划算的值，并在实测记录里写清楚为什么这么定。
+- [x] **4. 提交。** `git add scripts/p0_probe.py docs/p0-results.md configs/default.toml && git commit -m "chore: P0 probe results and calibrated crop params"`
 
 > 没有 key 的时候这一步先空着，后面的任务照常做，各层测试全部走离线回放。
 
@@ -159,13 +159,13 @@ AIAOMR/
 
 `errors.py` 定义 `ErrorCode` 枚举，成员照规格第 3.3 节。
 
-- [ ] **1. 先写一个会失败的测试。** 在 `tests/kernel/test_ir.py` 里写 `test_ir_roundtrip_and_invariants`：造一个最小的合法 IR，存成 JSON 再读回来，两者要相等；把调弦改成不递增，应该抛校验错误；把小节总数改成和实际条数不一致，也应该抛校验错误。
-- [ ] **2. 跑一遍，确认它失败。** 命令是 `pytest tests/kernel/test_ir.py -v`，这时候模块还不存在，应该看到导入失败。
-- [ ] **3. 实现 `ir.py`。** 用 pydantic 写数据类。小节总数不要当字段存，用校验器保证它等于小节列表的长度。拍号、调号、速度这三个列表，都要保证其中的小节号严格递增。
-- [ ] **4. 实现 `contracts.py` 和 `errors.py`。** 这两个文件里只有数据结构，不许有输入输出，也不许有业务判断。
-- [ ] **5. 写分层检查。** 在 `tests/test_layers.py` 里读一遍 `src/aiaomr` 下所有 Python 文件的 import 语句，逐条断言第 11 条硬约束里的依赖方向。比如 `providers/` 里的文件不许 import `measure`、`score`、`writers`。
-- [ ] **6. 跑全部测试。** 命令是 `pytest -q`，应该全绿。
-- [ ] **7. 提交。** `git add -A && git commit -m "feat(kernel): IR v3.0 schema and shared contracts"`
+- [x] **1. 先写一个会失败的测试。** 在 `tests/kernel/test_ir.py` 里写 `test_ir_roundtrip_and_invariants`：造一个最小的合法 IR，存成 JSON 再读回来，两者要相等；把调弦改成不递增，应该抛校验错误；把小节总数改成和实际条数不一致，也应该抛校验错误。
+- [x] **2. 跑一遍，确认它失败。** 命令是 `pytest tests/kernel/test_ir.py -v`，这时候模块还不存在，应该看到导入失败。
+- [x] **3. 实现 `ir.py`。** 用 pydantic 写数据类。小节总数不要当字段存，用校验器保证它等于小节列表的长度。拍号、调号、速度这三个列表，都要保证其中的小节号严格递增。
+- [x] **4. 实现 `contracts.py` 和 `errors.py`。** 这两个文件里只有数据结构，不许有输入输出，也不许有业务判断。
+- [x] **5. 写分层检查。** 在 `tests/test_layers.py` 里读一遍 `src/aiaomr` 下所有 Python 文件的 import 语句，逐条断言第 11 条硬约束里的依赖方向。比如 `providers/` 里的文件不许 import `measure`、`score`、`writers`。
+- [x] **6. 跑全部测试。** 命令是 `pytest -q`，应该全绿。
+- [x] **7. 提交。** `git add -A && git commit -m "feat(kernel): IR v3.0 schema and shared contracts"`
 
 ---
 
@@ -187,11 +187,11 @@ AIAOMR/
 
 `open_sink(path, fmt)` 函数，根据格式打开标准输出或者文件。
 
-- [ ] **1. 先写会失败的测试。** 三个测试：序号从 1 开始并且递增；每个事件恰好一行，每行都能被 JSON 解析，而且写完立刻刷出去；遇到不认识的事件名，人类可读渲染器返回 `None` 而不是崩溃。
-- [ ] **2. 跑一遍，确认失败。** `pytest tests/test_events.py -v`
-- [ ] **3. 实现 `events.py`。** 时间戳用带毫秒的 UTC 时间。写 JSON 时关掉 ASCII 转义，保证中文原样输出。每写完一行都要刷缓冲，否则界面上的进度会滞后。
-- [ ] **4. 跑一遍，确认通过。** `pytest tests/test_events.py -v`
-- [ ] **5. 提交。** `git commit -m "feat(events): NDJSON event stream and human renderer"`
+- [x] **1. 先写会失败的测试。** 三个测试：序号从 1 开始并且递增；每个事件恰好一行，每行都能被 JSON 解析，而且写完立刻刷出去；遇到不认识的事件名，人类可读渲染器返回 `None` 而不是崩溃。
+- [x] **2. 跑一遍，确认失败。** `pytest tests/test_events.py -v`
+- [x] **3. 实现 `events.py`。** 时间戳用带毫秒的 UTC 时间。写 JSON 时关掉 ASCII 转义，保证中文原样输出。每写完一行都要刷缓冲，否则界面上的进度会滞后。
+- [x] **4. 跑一遍，确认通过。** `pytest tests/test_events.py -v`
+- [x] **5. 提交。** `git commit -m "feat(events): NDJSON event stream and human renderer"`
 
 ---
 
@@ -207,11 +207,11 @@ AIAOMR/
 
 `load_config(provider, overrides=None)` 返回一个不可变的 `Config`，可以通过属性读到裁片、读取、预算、模型四组参数。其中预算字段是 `Decimal` 类型，保留四位小数。
 
-- [ ] **1. 先写会失败的测试。** 四个：默认值能读出来，并且预算等于 `Decimal("0.0150")`；模型专用文件会覆盖默认值；写错的参数名要报错；预算按四舍五入保留四位小数。
-- [ ] **2. 跑一遍，确认失败。** `pytest tests/kernel/test_config.py -v`
-- [ ] **3. 实现。** 用 `tomllib` 依次读三个文件（Python 3.10 上没有这个标准库，用 `tomli` 顶替，3.11 起直接用标准库），优先级从低到高是默认文件、模型文件、命令行。遇到未知参数直接报错，不要静默忽略。
-- [ ] **4. 跑一遍，确认通过。** `pytest tests/kernel/test_config.py -v`
-- [ ] **5. 提交。** `git commit -m "feat(config): layered TOML config with four-decimal CNY budget"`
+- [x] **1. 先写会失败的测试。** 四个：默认值能读出来，并且预算等于 `Decimal("0.0150")`；模型专用文件会覆盖默认值；写错的参数名要报错；预算按四舍五入保留四位小数。
+- [x] **2. 跑一遍，确认失败。** `pytest tests/kernel/test_config.py -v`
+- [x] **3. 实现。** 用 `tomllib` 依次读三个文件（Python 3.10 上没有这个标准库，用 `tomli` 顶替，3.11 起直接用标准库），优先级从低到高是默认文件、模型文件、命令行。遇到未知参数直接报错，不要静默忽略。
+- [x] **4. 跑一遍，确认通过。** `pytest tests/kernel/test_config.py -v`
+- [x] **5. 提交。** `git commit -m "feat(config): layered TOML config with four-decimal CNY budget"`
 
 ---
 
@@ -255,7 +255,7 @@ AIAOMR/
 
 `crops.py` 里的 `system_crop(img, system, pad_px=8)` 返回裁好的图和外框坐标。
 
-`crop_plan.py` 里的 `plan(tasks, cfg)` 返回每张裁片和它对应的小节。如果单个系统超过 1.6 百万像素，要按小节边界等分成 k 份，每份不超过上限；第二份之后的每一份，左边要拼一条几十像素宽的谱号调号条，并在提示里说明"左边这条是引用，不属于本段"。
+`crop_plan.py` 里的 `plan(tasks, cfg)` 返回每张裁片和它对应的小节。裁片统一缩放到 1.6 百万像素：不足这个数的上采样，超过的按小节边界等分成 k 份，每份不超过上限；第二份之后的每一份，左边要拼一条几十像素宽的谱号调号条，并在提示里说明"左边这条是引用，不属于本段"。
 
 - [ ] **1. 先写会失败的测试。** 四个：谱号区要并回第一个小节，不能凭空多出一个小节；裁剪边距不能叠加，否则会吃掉第一小节第一个数字；三百万像素的系统要切成两份；第二份要带上谱号条。
 - [ ] **2. 跑一遍，确认失败。** `pytest tests/score/test_bars.py tests/measure/test_crop_plan.py -v`
