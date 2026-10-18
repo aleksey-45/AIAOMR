@@ -44,15 +44,19 @@ def measure(index: int, beats: list[Beat] | None = None, rest: bool = False) -> 
 
 
 def make_ir(measures: list[Measure], title: str = "测试曲", *,
-            signatures: list[TimeSignature] | None = None) -> IR:
+            signatures: list[TimeSignature] | None = None,
+            key_signatures: list | None = None) -> IR:
     return IR(
         meta=Meta(provider="stub", model="stub", promptVersion="p0", schemaVersion="3.0",
                   generatedAt=datetime.now(timezone.utc)),
         source=Source(**{"class": 3}, kind="image", files=[], inputSha256=""),
         score=Score(
             title=title, artist="测试作者", tabber="", tuning=[28, 33, 38, 43], stringCount=4,
-            timeSignatures=signatures or [TimeSignature(measure=1, beats=4, beatType=4)],
-            keySignatures=[], tempos=[], clefTranspose=-12, fretCount=24,
+            timeSignatures=(
+                [TimeSignature(measure=1, beats=4, beatType=4)]
+                if signatures is None else signatures
+            ),
+            keySignatures=key_signatures or [], tempos=[], clefTranspose=-12, fretCount=24,
         ),
         skeletonProvenance=SkeletonProvenance(
             timeSignatures="read", tuning="read", keySignatures="defaulted",
@@ -122,14 +126,29 @@ def test_non_cp936_title_is_refused(tmp_path: Path) -> None:
     assert not path.exists()
 
 
-def test_bar_duration_mismatch_is_rejected(tmp_path: Path) -> None:
-    ir = make_ir([measure(1, beats=[beat() for _ in range(3)])])
+def test_bar_duration_mismatch_still_writes(tmp_path: Path) -> None:
+    """小节时值合计对不上拍号是 A1 报警，不是写出阻断（报警不阻断，F-04）。"""
+    ir = make_ir([measure(1, beats=[beat(notes=[note()]) for _ in range(3)])])
     path = tmp_path / "short.gp5"
 
-    with pytest.raises(WriterError) as excinfo:
-        GP5Writer().write(ir, str(path))
+    report = GP5Writer().write(ir, str(path))
 
-    assert excinfo.value.code is ErrorCode.E_BUILD_VALIDATE
+    assert report.roundtrip == "OK"
+    assert path.exists()
+    assert gp.parse(str(path), encoding="cp936").tracks[0].measures[0].voices[0].beats
+
+
+def test_missing_time_signature_defaults_to_4_4(tmp_path: Path) -> None:
+    """没有生效拍号时按 4/4 写出并记 warning，不让整首失败。"""
+    ir = make_ir([measure(1, beats=four_quarters())], signatures=[])
+    path = tmp_path / "no_ts.gp5"
+
+    report = GP5Writer().write(ir, str(path))
+
+    assert report.roundtrip == "OK"
+    assert report.warnings
+    song = gp.parse(str(path), encoding="cp936")
+    assert song.measureHeaders[0].timeSignature.numerator == 4
 
 
 def test_time_signature_change_is_written(tmp_path: Path) -> None:

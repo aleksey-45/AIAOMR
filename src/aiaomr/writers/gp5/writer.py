@@ -49,6 +49,14 @@ def _effective(events: list, measure: int):
     return current
 
 
+_DEFAULT_SIGNATURE = TimeSignature(measure=1, beats=4, beatType=4)
+
+
+def _effective_or_default(events: list, measure: int) -> TimeSignature:
+    """没有生效拍号时按 4/4 写（并记 warning）：拍号缺失是报警，不是写出阻断。"""
+    return _effective(events, measure) or _DEFAULT_SIGNATURE
+
+
 def _rest_duration(bar_ticks: int):
     for value in (gp.Duration.whole, gp.Duration.half, gp.Duration.quarter,
                   gp.Duration.eighth, gp.Duration.sixteenth):
@@ -65,7 +73,11 @@ class GP5Writer:
 
     # ---- 第一步：校验 --------------------------------------------------
     def validate(self, ir: IR) -> list[str]:
-        """返回错误列表；空列表表示可以写。"""
+        """返回错误列表；空列表表示可以写。
+
+        这里只判断"结构上能不能表达"，不做音乐正确性判断：小节时值合计对不上拍号
+        属于 A1 报警（§6.1），报警不阻断（F-04），不在这里拒绝。
+        """
         errors: list[str] = []
         if not ir.measures:
             errors.append("measures 为空")
@@ -79,17 +91,11 @@ class GP5Writer:
                 errors.append(f"{field} 无法用 {ENCODING} 编码：{value!r}")
 
         for measure in ir.measures:
-            signature = _effective(ir.score.timeSignatures, measure.index)
-            if signature is None:
-                errors.append(f"小节 {measure.index}: 没有生效的拍号")
-                continue
-            bar_ticks = _bar_ticks(signature)
             if measure.rest:
                 continue
             if not measure.beats:
                 errors.append(f"小节 {measure.index}: 没有 beat 也不是休止小节")
                 continue
-            total = 0
             for beat_index, beat in enumerate(measure.beats, start=1):
                 if beat.duration not in _DURATIONS:
                     errors.append(f"小节 {measure.index} 拍 {beat_index}: 不认识的时值 {beat.duration!r}")
@@ -97,7 +103,6 @@ class GP5Writer:
                 if beat.dots >= 2:
                     errors.append(f"小节 {measure.index} 拍 {beat_index}: dots=2 暂不支持（§4.3）")
                     continue
-                total += _ticks(beat.duration, beat.dots)
                 if not beat.notes and not beat.rest:
                     errors.append(f"小节 {measure.index} 拍 {beat_index}: 既没有音符也没有标休止")
                 for note in beat.notes:
@@ -105,15 +110,18 @@ class GP5Writer:
                         errors.append(f"小节 {measure.index}: 弦号 {note.string} 越界")
                     if not 0 <= note.fret <= ir.score.fretCount:
                         errors.append(f"小节 {measure.index}: 品数 {note.fret} 越界")
-            if total != bar_ticks:
-                errors.append(
-                    f"小节 {measure.index}: 时值合计 {total} ticks，拍号需要 {bar_ticks}"
-                )
 
         for event in ir.score.keySignatures:
             if not hasattr(gp.KeySignature, event.key):
                 errors.append(f"不认识的调号：{event.key!r}")
         return errors
+
+    def warnings(self, ir: IR) -> list[str]:
+        """不阻断、但要在报告里记一笔的事。"""
+        warnings: list[str] = []
+        if any(_effective(ir.score.timeSignatures, m.index) is None for m in ir.measures):
+            warnings.append("有生效拍号缺失，已按 4/4 写出")
+        return warnings
 
     # ---- 第二步：构建并写出 --------------------------------------------
     def build(self, ir: IR) -> gp.Song:
@@ -146,7 +154,7 @@ class GP5Writer:
             song.newMeasure()
         for measure in ir.measures:
             header = song.measureHeaders[measure.index - 1]
-            signature = _effective(ir.score.timeSignatures, measure.index)
+            signature = _effective_or_default(ir.score.timeSignatures, measure.index)
             header.timeSignature = gp.TimeSignature(
                 signature.beats, gp.Duration(signature.beatType)
             )
@@ -163,7 +171,7 @@ class GP5Writer:
 
     def _write_measure(self, track, measure: Measure, ir: IR) -> None:
         voice = track.measures[measure.index - 1].voices[0]
-        signature = _effective(ir.score.timeSignatures, measure.index)
+        signature = _effective_or_default(ir.score.timeSignatures, measure.index)
         bar_ticks = _bar_ticks(signature)
         if measure.rest:
             voice.beats.append(
@@ -193,6 +201,7 @@ class GP5Writer:
         errors = self.validate(ir)
         if errors:
             raise WriterError(ErrorCode.E_BUILD_VALIDATE, "写出前校验失败", errors)
+        warnings = self.warnings(ir)
 
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -213,7 +222,7 @@ class GP5Writer:
             bytes=target.stat().st_size,
             measures=len(ir.measures),
             roundtrip="OK",
-            warnings=[],
+            warnings=warnings,
         )
 
     def verify(self, ir: IR, path: Path) -> list[str]:

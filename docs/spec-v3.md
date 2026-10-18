@@ -405,7 +405,7 @@ AIAOMR/
 
 | ID | 规则 |
 |---|---|
-| E-01 | 写出**必须**经 `validate → build → verify` 三步，任一步失败 → 对应错误码，不产出文件 |
+| E-01 | 写出**必须**经 `validate → build → verify` 三步，任一步失败 → 对应错误码，不产出文件。`validate` 只判断结构上能否表达，不做音乐正确性判断（节奏对不对是报警的事） |
 | E-02 | IR→GP 的弦号翻转**只允许**发生在 `writers/gp5/` 一处（IR 1=最低弦 → GP 1=最高弦）；模型输出(GP)→IR 的翻转**只允许**发生在 `measure/` 一处（RD-06b） |
 | E-03 | `title/artist/album/tabber` **必须**逐字段 `encode(cp936)`，编不进 → `E_BUILD_VALIDATE` |
 | E-04 | 中文标题**禁止**依赖 PyGuitarPro 自身往返验证（它测不出编码问题） |
@@ -680,7 +680,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `techniques` | 映射到 note effect / beat effect；未支持项丢弃并计数 |
 | 多小节休止 | 已由 `assemble` 展开为空小节 |
 
-**必须**在写出前 `validate()`：调弦升序、string 范围、fret 范围、小节 ticks、时值名已知、文本可 cp936 编码。
+**必须**在写出前 `validate()`：调弦升序、string 范围、fret 范围、时值名已知、`dots ≤ 1`、非休止拍必须有音符、文本可 cp936 编码。**小节时值合计不属于写出校验**——它是 A1 报警（§6.1），报警不阻断（F-04）；没有生效拍号时按 4/4 写出并记 warning。
 **必须**在写出后 `verify()`：重新 `parse` 并逐音符比对；不一致 → `E_BUILD_ROUNDTRIP`。
 
 ### 4.4 审计（`tools/audit.mjs`）
