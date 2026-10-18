@@ -18,6 +18,10 @@ def get_provider(
 ) -> VisionProvider:
     """`name` 必须与 `configs/providers/<name>.toml` 对应；未知名字直接报错。"""
     normalized = name.replace("-", "_")
+    if normalized == "stub":
+        if offline_dir is None:
+            raise ConfigError("provider stub 需要 --replay-dir（回放目录）")
+        return StubClient(CAPS, offline_dir)
     if normalized == "deepseek_flash":
         if offline_dir is not None:
             return StubClient(CAPS, offline_dir)

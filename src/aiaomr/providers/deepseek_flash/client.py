@@ -35,6 +35,8 @@ _TIMEOUT_S = 300
 _BEIJING = timezone(timedelta(hours=8))
 # 修复提示只许带截断后的错误摘要（V-05b）：最多 500 个字符。
 _MAX_REPAIR_CHARS = 500
+# 测试钩子用：stub 的累计读次数（跨实例共享，命令行每次阶段都会新建 client）。
+_STUB_READS = 0
 
 
 class DeepSeekClient:
@@ -206,8 +208,18 @@ class StubClient:
     def __init__(self, caps: ProviderCapabilities, replay_dir: str | Path) -> None:
         self.caps = caps
         self._dir = Path(replay_dir)
+        self._reads = 0
 
     def read(self, request: VisionRequest) -> VisionResponse:
+        # 测试钩子：模拟慢调用 / 中途 Ctrl-C，用来验中断与记账路径。
+        global _STUB_READS
+        sleep_ms = int(os.environ.get("AIAOMR_TEST_STUB_SLEEP_MS", "0") or 0)
+        if sleep_ms > 0:
+            time.sleep(sleep_ms / 1000.0)
+        _STUB_READS += 1
+        interrupt_after = int(os.environ.get("AIAOMR_TEST_STUB_INTERRUPT_AFTER", "0") or 0)
+        if interrupt_after > 0 and _STUB_READS > interrupt_after:
+            raise KeyboardInterrupt("stub interrupt")
         path = self._dir / f"{request.call_id}.resp.json"
         if not path.exists():
             raise ProviderError(ErrorCode.E_VLM_HTTP, f"回放文件不存在：{path}")

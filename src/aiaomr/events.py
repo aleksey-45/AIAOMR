@@ -120,8 +120,12 @@ class Emitter:
 
         return self._seq
 
-    def emit(self, stage: str, event: str, level: str = "info", **data: Any) -> Event:
-        """写出一条事件。额外关键字参数全部进 ``data``。"""
+    def emit(self, stage_name: str, event_name: str, level: str = "info", **data: Any) -> Event:
+        """写出一条事件。额外关键字参数全部进 ``data``。
+
+        参数名刻意不叫 `stage`/`event`：`data` 里本来就有同名的业务字段
+        （例如 `stage.started` 的 `data.stage`），重名会让调用方没法传。
+        """
 
         with self._lock:
             self._seq += 1
@@ -130,8 +134,8 @@ class Emitter:
                 seq=self._seq,
                 ts=utc_now(),
                 level=level,
-                stage=stage,
-                event=event,
+                stage=stage_name,
+                event=event_name,
                 data=dict(data),
             )
             self._stream.write(record.to_json() + "\n")
