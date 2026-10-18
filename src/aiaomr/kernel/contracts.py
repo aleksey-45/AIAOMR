@@ -106,6 +106,10 @@ class MeasureRead(_Model):
     index: int
     beats: list[Beat] = Field(default_factory=list)
     unreadable: bool = False
+    # 谱面上印的小节号（没有就是 None）；装配时印刷号优先、累加兜底（AS-03）。
+    printed: int | None = None
+    # 多小节休止的条数；普通小节为 1（AS-01）。
+    multiRest: int = 1
 
 
 class MeasureResult(_Model):

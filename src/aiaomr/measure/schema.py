@@ -43,6 +43,9 @@ class ModelMeasure(_Model):
     index: int = Field(ge=1)
     beats: list[ModelBeat] = Field(default_factory=list)
     unreadable: bool = False
+    # 谱面印刷的小节号（没有就省略）；多小节休止的条数（普通小节省略）。
+    printed: int | None = None
+    multiRest: int = Field(default=1, ge=1, le=64)
 
 
 class ModelResponse(_Model):

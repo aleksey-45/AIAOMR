@@ -49,5 +49,12 @@ def locate(pages: list[str], class_: int) -> tuple[PageSet, list[Image.Image]]:
         page, image = locate_page(path, page_index=index)
         located.append(page)
         images.append(image)
+    # 跨页统一编号：读谱层按这个号请求，装配层按这个号对齐（AS-03）。
+    counter = 0
+    for page in located:
+        for system in page.systems:
+            for box in system.measures:
+                counter += 1
+                box.index = counter
     deg = float(np.median([p.deg for p in located])) if located else 0.0
     return PageSet(pages=located, **{"class": class_}, degGlobal=deg), images

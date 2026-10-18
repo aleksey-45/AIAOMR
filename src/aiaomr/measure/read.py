@@ -81,7 +81,15 @@ def _convert(
     reads: list[MeasureRead] = []
     for measure in parsed.measures:
         if measure.unreadable:
-            reads.append(MeasureRead(index=measure.index, beats=[], unreadable=True))
+            reads.append(
+                MeasureRead(
+                    index=measure.index,
+                    beats=[],
+                    unreadable=True,
+                    printed=measure.printed,
+                    multiRest=measure.multiRest,
+                )
+            )
             continue
         beats: list[Beat] = []
         for beat in measure.beats:
@@ -118,7 +126,15 @@ def _convert(
                     evidence=evidence,
                 )
             )
-        reads.append(MeasureRead(index=measure.index, beats=beats, unreadable=False))
+        reads.append(
+            MeasureRead(
+                index=measure.index,
+                beats=beats,
+                unreadable=False,
+                printed=measure.printed,
+                multiRest=measure.multiRest,
+            )
+        )
     return reads
 
 
