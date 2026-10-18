@@ -114,3 +114,13 @@ def test_ts_inference_from_bar_durations(tmp_path: Path) -> None:
 
     assert skel.timeSignatures[0].beats == 3
     assert skel.provenance.timeSignatures == "inferred"
+
+
+def test_key_signature_is_normalized(tmp_path: Path) -> None:
+    """模型常写 "Bb major"，要规范成 Guitar Pro 的 "BbMajor"。"""
+    cfg = load_config("deepseek_flash")
+    content = dict(FULL, keySignature="Bb major")
+
+    skel = read_skeleton(make_crop(tmp_path), FakeProvider(content), cfg)
+
+    assert skel.keySignatures[0].key == "BbMajor"

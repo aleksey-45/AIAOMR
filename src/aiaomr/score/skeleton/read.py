@@ -7,6 +7,7 @@ S-04/S-05：拍号/调号是事件列表，续行系统没印时**继承**上一
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -79,6 +80,17 @@ def default_skeleton(
     )
 
 
+def normalize_key(value: str) -> str:
+    """把模型写的调号规范成 Guitar Pro 的名字：`Bb major` → `BbMajor`、`F# minor` → `F#Minor`。"""
+    text = value.strip()
+    match = re.match(r"^([A-Ga-g])([#b]?)\s*(major|minor)$", text)
+    if not match:
+        return text
+    note = match.group(1).upper() + match.group(2)
+    mode = "Major" if match.group(3).lower() == "major" else "Minor"
+    return note + mode
+
+
 def _fill_initial(skel: Skeleton, facts: HeaderFacts, cfg: Config) -> Skeleton:
     """把首页读到的东西填进骨架；缺项按 §2.2.1 兜底。"""
     tuning = facts.tuning
@@ -102,7 +114,8 @@ def _fill_initial(skel: Skeleton, facts: HeaderFacts, cfg: Config) -> Skeleton:
             skel.provenance.timeSignatures = "read"
 
     if facts.keySignature:
-        skel.keySignatures = [KeySignature(measure=1, key=facts.keySignature)]
+        key = normalize_key(facts.keySignature)
+        skel.keySignatures = [KeySignature(measure=1, key=key)]
         skel.provenance.keySignatures = "read"
 
     if facts.tempo:
@@ -148,9 +161,10 @@ def apply_header(skel: Skeleton, facts: HeaderFacts, measure: int) -> Skeleton:
                     TimeSignature(measure=measure, beats=beats, beatType=beat_type)
                 )
     if facts.keySignature:
+        key = normalize_key(facts.keySignature)
         last = skel.keySignatures[-1] if skel.keySignatures else None
-        if last is None or last.key != facts.keySignature:
-            skel.keySignatures.append(KeySignature(measure=measure, key=facts.keySignature))
+        if last is None or last.key != key:
+            skel.keySignatures.append(KeySignature(measure=measure, key=key))
     if facts.tempo:
         last = skel.tempos[-1] if skel.tempos else None
         if last is None or last.bpm != facts.tempo:
