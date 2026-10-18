@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiaomr"
+version = "0.1.0"
+description = "把贝斯谱图片认成 Guitar Pro 5 文件的命令行工具"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow==12.3.0",
+    "numpy==2.2.6",
+    "opencv-python-headless==5.0.0.93",
+    "requests==2.34.2",
+    "pydantic==2.14.1",
+    "PyGuitarPro==0.11",
+    # Python 3.10 没有标准库 tomllib，用 tomli 顶替；3.11 起不再安装。
+    "tomli==2.5.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
