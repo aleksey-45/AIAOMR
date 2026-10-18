@@ -137,8 +137,6 @@ AIAOMR/
 | `eval/` | 非层 | 打分、语料门、selftest | 混进产品路径 |
 | `configs/default.toml` | — | 与 provider 无关的参数 | 厂商参数 |
 | `configs/providers/<name>.toml` | — | 模型名、并发、预算、重试、thinking | 业务阈值 |
-| `corpus/` | — | 真图、真值 `.gp`、合成语料 | 运行产物 |
-| `out/<song>/` | — | 运行产物（IR、calls、crops、gp5） | 应入库的东西 |
 | 各层 `prompts/`（L2/L3） | L2/L3 | 与 provider 无关的公共约束 | 厂商特定口径 |
 | `providers/<name>/prompts/` | L1 | 只写差异，覆盖 base 对应段落 | 复制整份 base |
 | `fixtures/<provider>/` | — | 录制好的请求/响应 | 真值、密钥 |
@@ -705,7 +703,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `crop.max_measures_per_call` | 8 | 单次调用小节数 |
 | `crop.header_strip_px` | 40–100 | 拆分裁片的引用条宽度（按 deg 取 `4×deg`，clamp 到该区间） |
 | `read.min_deg_eff` | 12 | 压缩后有效谱线间距下限；低于此值记录 WARN（不阻断） |
-| `budget.cny_per_8measures` | 0.0150 | **成本预算的唯一单位：人民币元 / 每 8 小节，谷价（空闲时段）口径**；四位小数。默认按 thinking 开口径（≈0.0127）；thinking 关时≈0.0047。单首派生上限 = `ceil(measureCount/8) × 该值` |
+| `budget.cny_per_8measures` | 0.0150 | **成本预算的唯一单位：人民币元 / 每 8 小节，谷价（空闲时段）口径**；四位小数。P0 实测（thinking 关、1.6 MP 裁片）每 8 小节约 ¥0.004；单首派生上限 = `ceil(measureCount/8) × 该值` |
 | `budget.precision` | 0.0001 | 记账精度（四位小数）。**它不是账单**：只用于预算闸与回归比较，不与 provider 对账 |
 | `locate.line_frac_min` | 0.60 | 谱线行覆盖率下限（旧项目实测 0.72 会漏切） |
 | `locate.max_line_thickness_px` | 25 | 超过即判为黑边/进度条 |
