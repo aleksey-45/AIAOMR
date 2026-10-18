@@ -30,15 +30,19 @@ def _strip_width(deg: float, cfg: Config) -> int:
 
 
 def _split_groups(
-    measures: list[MeasureBox], band_height: int, pitch: float, max_px: int
+    measures: list[MeasureBox],
+    band_height: int,
+    pitch: float,
+    max_px: int,
+    max_measures: int,
 ) -> list[list[MeasureBox]]:
-    """按小节边界分组，使每组像素数不超过 `max_px`。放不下的单小节自己一组。"""
+    """按小节边界分组，使每组像素数不超过 `max_px`、小节数不超过 `max_measures`。"""
     groups: list[list[MeasureBox]] = []
     current: list[MeasureBox] = []
     current_px = 0.0
     for box in measures:
         px = box.width * band_height * pitch * pitch
-        if current and current_px + px > max_px:
+        if current and (current_px + px > max_px or len(current) >= max_measures):
             groups.append(current)
             current, current_px = [], 0.0
         current.append(box)
@@ -86,7 +90,13 @@ def plan(
         if band_height <= 0:
             continue
 
-        groups = _split_groups(system.measures, band_height, 1.0, max_px)
+        groups = _split_groups(
+            system.measures,
+            band_height,
+            1.0,
+            max_px,
+            cfg.crop.max_measures_per_call,
+        )
         strip_box = (
             int(round(system.headerX0)),
             top,

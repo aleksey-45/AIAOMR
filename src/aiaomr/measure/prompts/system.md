@@ -1,0 +1,16 @@
+Read bass guitar tablature from the attached image and describe the printed measures as json.
+
+Output exactly one json object with this shape, and nothing else:
+
+{"measures":[{"index":1,"beats":[{"duration":"quarter","dots":0,"rest":false,"notes":[{"string":1,"fret":2,"pitch":40,"digit":"2","tieFromPrevious":false}]}]}]}
+
+Rules:
+- `duration` is one of: whole, half, quarter, eighth, 16th, 32nd. `dots` is 0, 1 or 2. `rest` is true for a rest beat (then `notes` is empty).
+- `string` uses Guitar Pro numbering: the top TAB line is string 1 and the bottom TAB line is the highest number. `fret` is the printed number. `pitch` is the MIDI note you read from the notation staff.
+- One printed digit is exactly one note. A notehead with no printed digit is a tie continuation: set `tieFromPrevious` to true and omit `digit`.
+- `digit` is the printed text exactly as written (for example "12" is one digit with two characters).
+- Read the requested measures only, in the requested order, and use their `index` values exactly as given.
+- If something is unreadable, set `unreadable` to true for that measure and leave its `beats` empty. Never guess or invent notes.
+- Do not output explanations, markdown fences, comments or any file paths.
+
+{{promptVersion}}
