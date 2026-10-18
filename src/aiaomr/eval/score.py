@@ -1,7 +1,8 @@
 """打分器（规格 §2.9 EV-01..EV-04、§9.2）。
 
-四个指标，每个都带分母；先自测尺子，再量分数。真值来自旧项目存好的 `.gp`，用
-`tools/dump.mjs` 导成 JSON（alphaTab 的弦号从最低弦数起，与本项目约定一致）。
+四个指标，每个都带分母；先自测尺子，再量分数。真值来自 `tools/dump.mjs` 现导的 JSON
+（alphaTab 的弦号从最低弦数起，与本项目约定一致），加载时先校验每小节时值之和等于拍号，
+尺子不可信就拒绝打分（§9.2，宁停不量错）。
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..kernel.contracts import Skeleton
-from ..kernel.ir import IR
+from ..kernel.ir import IR, TimeSignature
 from ..score.verify.invariants import effective_ts, expected_ticks, ticks_of
 
 DEFAULT_THRESHOLDS = {
@@ -20,6 +21,12 @@ DEFAULT_THRESHOLDS = {
     "pitch_exact": 0.85,
     "bars_add_up": 0.95,
 }
+
+# 真值 JSON 里的 ticks 是 alphaTab 的 beat.playbackDuration，走 MIDI 时间轴：四分音符 = 960。
+# 本项目不变量（score.verify.invariants）用另一种 tick：四分音符 = 8（spec-staff §1）。
+# 真值保留 alphaTab 原值，校验时按这个比例换算，不把两种单位混着比。
+_TRUTH_TICKS_PER_QUARTER = 960
+_PROJECT_TICKS_PER_QUARTER = 8
 
 
 class EvalError(RuntimeError):
@@ -36,10 +43,37 @@ class Metric:
         return {"value": round(self.value, 4), "matched": self.matched, "total": self.total}
 
 
+def _expected_truth_ticks(signature: TimeSignature) -> int:
+    """拍号换算成真值 JSON 的单位（alphaTab tick，四分 = 960）。"""
+    return expected_ticks(signature) * _TRUTH_TICKS_PER_QUARTER // _PROJECT_TICKS_PER_QUARTER
+
+
 def load_truth(path: str | Path) -> dict:
+    """加载真值 JSON，并校验每小节时值之和等于该小节拍号（§9.2）。
+
+    旧产物（没有 timeSignature、或每小节多出休止）一律抛 `EvalError`：真值不可信时不打分。
+    """
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not data.get("available", True):
         raise EvalError(f"真值不可用：{data.get('error', path)}")
+    for measure_obj in data.get("measures", []):
+        index = int(measure_obj.get("index", 0))
+        declared = measure_obj.get("timeSignature")
+        if not declared:
+            raise EvalError(
+                f"第 {index} 小节缺少 timeSignature：旧真值不可信，"
+                "请用 tools/dump.mjs 重导（§9.2）"
+            )
+        numerator = int(declared["numerator"])
+        denominator = int(declared["denominator"])
+        signature = TimeSignature(measure=index, beats=numerator, beatType=denominator)
+        actual = sum(int(beat.get("ticks", 0)) for beat in measure_obj.get("beats", []))
+        expected = _expected_truth_ticks(signature)
+        if actual != expected:
+            raise EvalError(
+                f"第 {index} 小节时值之和不等于拍号 {numerator}/{denominator}："
+                f"期望 {expected}，实际 {actual}（alphaTab tick，四分 = {_TRUTH_TICKS_PER_QUARTER}）"
+            )
     return data
 
 

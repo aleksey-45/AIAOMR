@@ -1,6 +1,7 @@
-// 把一个 Guitar Pro 文件导成真值 JSON（逐小节的拍与音符），给 eval/score.py 用。
+// 把一个 Guitar Pro 文件导成真值 JSON（逐小节的拍号、拍与音符），给 eval/score.py 用。
 //   node tools/dump.mjs <file.gp|gp5>   -> 一个 JSON 对象
 // alphaTab 的弦号从最低弦数起，正好是本项目的约定，直接透传。
+// 真值必须能让 eval/load_truth 校验通过：每小节 beats[].ticks 之和 == 该小节拍号。
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -32,8 +33,17 @@ const score = at.importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(fs.readF
 const staff = score.tracks[0].staves[0];
 const tuning = [...(staff.stringTuning?.tunings ?? [])].reverse();
 const measures = staff.bars.map((bar, index) => {
+  // 拍号在 alphaTab 的 MasterBar 上：timeSignatureNumerator / timeSignatureDenominator（1.8.4 实测）。
+  const masterBar = bar.masterBar ?? score.masterBars[index];
+  const timeSignature = {
+    numerator: masterBar.timeSignatureNumerator,
+    denominator: masterBar.timeSignatureDenominator,
+  };
   const beats = [];
   for (const voice of bar.voices) {
+    // alphaTab 读 .gpx 时会给没用到的声部槽位各补一条四分休止（isEmpty === true），
+    // 那不是谱面内容；不跳过的话每小节会凭空多出几条休止，真值就不能用。
+    if (voice.isEmpty) continue;
     for (const beat of voice.beats) {
       beats.push({
         ticks: beat.playbackDuration,
@@ -42,6 +52,11 @@ const measures = staff.bars.map((bar, index) => {
       });
     }
   }
-  return { index: index + 1, beats };
+  if (beats.length === 0) {
+    // GP5 的空小节（整小节休止）一个 beat 都没有；按拍号补一条整小节休止，
+    // 时值来自 masterBar.calculateDuration()（拍号算出来的），不是猜的。
+    beats.push({ ticks: masterBar.calculateDuration(), rest: true, notes: [] });
+  }
+  return { index: index + 1, timeSignature, beats };
 });
 console.log(JSON.stringify({ available: true, title: score.title, tuning, measures }));
