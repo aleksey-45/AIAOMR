@@ -98,8 +98,9 @@ def violations(root: Path = SRC_ROOT):
                 continue
             if target == PKG or target.startswith(PKG + "."):
                 target_layer = target.split(".")[1]
-                if target_layer in ("eval", "cli"):
-                    # LAY-06：任何层都不许回头依赖编排与评测。
+                is_entrypoint = rel.endswith("aiaomr/__main__.py")
+                if target_layer in ("eval", "cli") and not is_entrypoint:
+                    # LAY-06：任何层都不许回头依赖编排与评测；__main__ 是入口本身，例外。
                     problems.append(
                         f"{rel}:{lineno}: LAY-06 {layer}/ 禁止 import "
                         f"{target_layer}/（{target}）"
