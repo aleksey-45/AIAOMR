@@ -26,19 +26,20 @@
 - **几何定坐标**：纯 OpenCV/numpy 找系统、小节网格、TAB 弦线、谱线间距。定位层只输出坐标与几何量，不下任何音乐结论。
 - **VLM 定符号**：把一个系统（≤8 小节）裁成 1.6 百万像素的横条送给视觉模型，只读这一条里的弦号、品数、时值。**不把整页图发模型。**
 - **TAB 定音**：音高 = 调弦 + 品数，由程序算；模型给的音高只用于比对，不进权威字段。
-- **记谱定时**：P2 起用几何判据读符头、符干、横梁、附点与休止，模型只做复核（规范见 [`docs/spec-staff.md`](docs/spec-staff.md)，尚未实现）。
+- **记谱定时**：P2 起用几何判据读符头、符干、横梁、附点与休止，模型只做复核（规范见 [`docs/spec-staff.md`](docs/spec-staff.md)；符干/横梁/符尾/附点/多小节休止已实现，符头类别、休止三组与归属建图待补）。
 - **程序验算**：不变量逐小节检查（当前 A1–A5），只报警、不阻断、不补写。
 - **模型终裁**：报警项盲读复读，两次独立读数一致才采纳，不一致送终裁（尚未实现）。
 
 ## 流水线
 
-一条命令按固定顺序跑 8 个阶段：
+一条命令按固定顺序跑 9 个阶段：
 
 | 阶段 | 做什么 | 产物（`out/<song>/` 下） |
 |---|---|---|
 | `input` | 登记输入、算 sha256、记录 class | `input.json` |
 | `locate` | 页 → 系统 → 小节网格 → 裁片坐标 | `pageset.json`、`crops/` |
 | `skeleton` | 读拍号、调弦、调号、速度、曲名，缺项兜底 | `skeleton.json`、`crops/header.png` |
+| `staff` | 读五线谱符号（符干/横梁/符尾/附点/休止），给出逐拍时值与 abstain 理由；不联网 | `staff/rhythm.json` |
 | `read` | 裁片 → 调模型 → 四道闸 → 逐小节事实 | `pageNN/crops/*.png`、`measures/*.json`、`calls/*.json` |
 | `verify` | 跑不变量，产出报警清单 | `judgements.json` |
 | `assemble` | 排小节号、展开多小节休止、组装 IR | （内存；完整跑完才落 `ir.json`） |
@@ -96,7 +97,7 @@ export PYTHONUTF8=1     # PowerShell: $env:PYTHONUTF8=1
 | `--out` | 输出目录，默认 `out/<song>` |
 | `--provider` | `deepseek_flash`（默认）或 `stub`（离线回放） |
 | `--format` | `auto`（默认，TTY 用 human、管道用 ndjson）/ `human` / `ndjson` |
-| `--until` | 跑到指定阶段停：`input/locate/skeleton/read/verify/assemble/write/audit` |
+| `--until` | 跑到指定阶段停：`input/locate/skeleton/staff/read/verify/assemble/write/audit` |
 | `--resume` | 复用已有中间产物；已付过钱的调用不重复付 |
 | `--force` | 强制重跑 `skeleton` 与 `read` |
 
@@ -160,11 +161,11 @@ providers (L1) → measure (L2) → score (L3) → writers (L4)
 
 ```
 src/aiaomr/
-├── cli.py                    唯一入口：参数解析、8 阶段编排、阻断与退出码
+├── cli.py                    唯一入口：参数解析、9 阶段编排、阻断与退出码
 ├── events.py                 事件对象、NDJSON 写出、human 渲染；无业务判断
 ├── kernel/                   四层共用的纯数据，只依赖标准库与 pydantic
 │   ├── ir.py                 IR v3.0，唯一 schema 来源
-│   ├── contracts.py          PageSet / Crop / MeasureTask / MeasureResult / Skeleton
+│   ├── contracts.py          PageSet / Crop / MeasureTask / MeasureResult / Skeleton / MeasureRhythm
 │   ├── errors.py             错误码、严重级别、退出码
 │   └── config.py             configs/*.toml 三层合并与校验
 ├── providers/                L1 模型接入；唯一允许发 HTTP 的目录
@@ -179,7 +180,7 @@ src/aiaomr/
 ├── score/                    L3 定位、骨架、几何判据、验算、装配
 │   ├── locate/               页 → 系统 → 小节网格 → 裁片
 │   ├── skeleton/             拍号/调弦/调号/速度/曲名，缺项兜底并记来源
-│   ├── geometry/             几何判据（P2 原型，尚未接 CLI）
+│   ├── staff/                读五线谱符号：判据、归属、时值、abstain（规范 docs/spec-staff.md）
 │   ├── verify/               不变量 A1–A5，只报警不阻断
 │   ├── assemble/             多小节休止展开、印刷号优先、IR 组装
 │   └── prompts/              骨架与调号提示词
@@ -194,7 +195,7 @@ src/aiaomr/
 | 路径 | 职责 |
 |---|---|
 | `configs/` | `default.toml`（与 provider 无关的参数）、`providers/<name>.toml`（provider 专属）、`thresholds.toml`（验收阈值） |
-| `tests/` | 145 个测试，默认离线；`test_layers.py` 用 AST 扫描 import，强制四层依赖 |
+| `tests/` | 190 个测试，默认离线；`test_layers.py` 用 AST 扫描 import，强制四层依赖（含 LAY-09） |
 | `tools/` | `audit.mjs`（alphaTab 审计）、`dump.mjs`（真值导出与评测） |
 | `scripts/` | `p0_probe.py`：P0 一次性探针，不属于产品路径 |
 | `docs/` | 规范、方案、实施计划、P0/P1 报告 |
@@ -216,7 +217,7 @@ src/aiaomr/
 |---|---|
 | [`docs/spec-v3.md`](docs/spec-v3.md) | **规范，唯一权威。** 字段名、错误码、参数值、事件名、不变量都在这里；与其它文档冲突时以它为准 |
 | [`docs/plan-v3.md`](docs/plan-v3.md) | 想知道"为什么要这么设计"、哪些方案被放弃了 |
-| [`docs/spec-staff.md`](docs/spec-staff.md) | 读五线谱层的配套规范（判据、abstain 原因、目录归属）；**尚未实现** |
+| [`docs/spec-staff.md`](docs/spec-staff.md) | 读五线谱层的配套规范（判据、abstain 原因、目录归属）；已实现原型，判据在补 |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 实施计划（每个任务先写会失败的测试）。注意：勾选框状态过期，进度以 `git log`、代码和阶段报告为准 |
 | [`docs/p0-results.md`](docs/p0-results.md) | 两分钱实测：1.6 MP、thinking 关、单次读整系统这些参数是怎么定下来的 |
 | [`docs/p1-report.md`](docs/p1-report.md) | P1 验收报告：为什么 0/4、卡在哪、哪些项已通过 |
@@ -231,7 +232,7 @@ src/aiaomr/
 | P0 | 花两分钱实测，标定裁片、清晰度、单次读几个小节 | 已完成 |
 | P1 | class 3 端到端：4 首真谱 → `.gp5` | **未通过 0/4**：全部停在写出闸门 |
 | P2 | 几何节奏、连音、多小节休止、复读终裁、A6–A12、并发、缓存、语料门 | 进行中：任务 1 完成；任务 2（几何符头）原型阶段，真页面对照 0/7 |
-| staff | 读五线谱层（`score/staff/`） | 规范已写，**未实现** |
+| staff | 读五线谱层（`score/staff/`） | 原型已接进 CLI（独立阶段、产物与事件落盘）；符头类别、休止三组、横梁归属建图待任务 2/3 |
 | P3–P5 | class 5 视频截图、class 6 演奏视频长条、class 1 手机照片 | 未开始 |
 | P6 | GUI 薄壳：只消费事件流，不重写业务 | 未开始 |
 
