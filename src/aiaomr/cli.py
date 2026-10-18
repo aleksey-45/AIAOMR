@@ -106,13 +106,14 @@ def _collect_pages(path: str) -> list[str]:
 
 
 def _header_crop(page_image: Image.Image, pageset: PageSet, out_dir: Path) -> Crop:
-    """首页头部裁片：标题、速度、拍号、调号、调弦都印在第一个系统的上方。"""
+    """首页头部裁片：标题、速度在上方，拍号/调号/调弦印在第一个系统的谱号区里，
+    所以裁片要一直盖到第一个系统的 TAB 带下沿，否则拍号读不到（NIGHT DANCER 实测）。"""
     page = pageset.pages[0]
     height = page_image.size[1]
     top = 0
     bottom = height
     if page.systems:
-        bottom = min(height, int(round(page.systems[0].y0)) + 8)
+        bottom = min(height, int(round(page.systems[0].tabY1)) + 12)
     box = (0, top, int(page.width), bottom)
     if box[3] - box[1] < 8:
         box = (0, 0, int(page.width), min(height, 80))
