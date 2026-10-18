@@ -7,6 +7,7 @@ import numpy as np
 from aiaomr.kernel.contracts import MeasureBox, System
 from aiaomr.score.geometry.context import measure_context
 from aiaomr.score.geometry.criteria import (
+    HeadCriterion,
     BeamCriterion,
     DotCriterion,
     RestBarCriterion,

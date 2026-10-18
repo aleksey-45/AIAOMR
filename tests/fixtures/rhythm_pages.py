@@ -14,6 +14,17 @@ def _disc(arr: np.ndarray, cx: float, cy: float, rx: float, ry: float) -> None:
                 arr[int(y), int(x)] = 0
 
 
+def _ring(arr: np.ndarray, cx: float, cy: float, rx: float, ry: float, thickness: float = 2.0) -> None:
+    """空心椭圆：画实心，再把中间抹回白色（谱线穿过符头的位置也要抹掉）。"""
+    _disc(arr, cx, cy, rx, ry)
+    ys = np.arange(max(0, int(cy - ry) - 1), min(arr.shape[0], int(cy + ry) + 2))
+    xs = np.arange(max(0, int(cx - rx) - 1), min(arr.shape[1], int(cx + rx) + 2))
+    for y in ys:
+        for x in xs:
+            if ((x - cx) / max(0.1, rx - thickness)) ** 2 + ((y - cy) / max(0.1, ry - thickness)) ** 2 <= 1.0:
+                arr[int(y), int(x)] = 255
+
+
 def _rect(arr: np.ndarray, x0: float, x1: float, y0: float, y1: float) -> None:
     arr[max(0, int(y0)) : int(y1), max(0, int(x0)) : int(x1)] = 0
 
@@ -39,8 +50,17 @@ def rhythm_measure(beats: list[dict], deg: int = 12, staff_top: int = 60, beat_g
         if kind == "rest":
             continue
         if kind == "whole":
-            _disc(arr, position, note_y, 0.65 * deg, 0.4 * deg)
+            _ring(arr, position, note_y - 0.5 * deg, 0.65 * deg, 0.4 * deg)
             stem_tops.append(float("nan"))
+            continue
+        if kind == "half":
+            _ring(arr, position, note_y - 0.5 * deg, 0.6 * deg, 0.38 * deg)
+            stem_x = position + 0.5 * deg
+            stem_top = note_y - 3.4 * deg
+            arr[int(stem_top) : int(note_y) + 1, int(stem_x) : int(stem_x) + max(1, deg // 10)] = 0
+            stem_tops.append(stem_top)
+            if beat.get("dots"):
+                _disc(arr, position + 1.25 * deg, note_y - 0.1 * deg, 0.16 * deg, 0.16 * deg)
             continue
         _disc(arr, position, note_y, 0.55 * deg, 0.38 * deg)
         stem_x = position + 0.5 * deg

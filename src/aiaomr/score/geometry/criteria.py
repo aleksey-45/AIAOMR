@@ -191,6 +191,61 @@ class DotCriterion(Criterion):
         return out
 
 
+class HeadCriterion(Criterion):
+    """符头：把符干那几列抹掉后找连通域；"实心还是空心"看原始墨迹里有没有内洞。
+
+    空心符头（二分/全音符）是一个闭合的圈，内洞在原始图里仍然闭合——符干是从外面
+    贴上来的，不会把洞打开，所以洞要在 `dark` 上判，不能在抹过符干的掩码上判。
+    """
+
+    name = "head"
+
+    def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
+        import cv2
+
+        if ctx.dark.size == 0:
+            return []
+        stems = (findings or {}).get("stem", [])
+        mask = ctx.beam_dark.copy()
+        for stem in stems:
+            x = int(round(stem.value))
+            top = max(0, int(stem.bbox[1]) - 1)
+            bottom = min(ctx.height, int(stem.bbox[3]) + 2)
+            mask[top:bottom, max(0, x - 1) : x + 2] = False
+
+        binary = mask.astype("uint8") * 255
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        heads: list[Finding] = []
+        min_w, max_w = 0.7 * ctx.deg, 1.9 * ctx.deg
+        min_h, max_h = 0.3 * ctx.deg, 1.2 * ctx.deg
+        for index in range(1, count):
+            x, y, w, h, area = (int(v) for v in stats[index])
+            if not (min_w <= w <= max_w and min_h <= h <= max_h):
+                continue
+            if w / max(1, h) < 1.1 or area < 0.15 * ctx.deg * ctx.deg:
+                continue
+            # 洞在原始墨迹上判；裁剪要给一圈余量，否则符干把圈切在裁剪边界上，洞就漏了
+            pad = int(0.4 * ctx.deg)
+            y0, y1 = max(0, y - pad), min(ctx.height, y + h + pad)
+            x0, x1 = max(0, x - pad), min(ctx.width, x + w + pad)
+            crop = (ctx.dark[y0:y1, x0:x1]).astype("uint8") * 255
+            contours, hierarchy = cv2.findContours(crop, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+            holes = 0
+            if hierarchy is not None:
+                for position, node in enumerate(hierarchy[0]):
+                    if node[3] != -1 and cv2.contourArea(contours[position]) > 2:
+                        holes += 1
+            heads.append(
+                Finding(
+                    kind=self.name,
+                    value=1.0 if holes else 0.0,
+                    bbox=(float(x), float(y), float(x + w), float(y + h)),
+                    evidence={"filled": holes == 0, "holes": holes, "area": area},
+                )
+            )
+        return heads
+
+
 class RestBarCriterion(Criterion):
     """多小节休止条：一条几乎贯穿小节宽度的粗横线，没有符干。"""
 
@@ -206,6 +261,7 @@ class RestBarCriterion(Criterion):
 
 
 CRITERIA: list[Criterion] = [
+    HeadCriterion(),
     StemCriterion(),
     BeamCriterion(),
     FlagCriterion(),
