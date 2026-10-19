@@ -62,7 +62,8 @@ def _context(arr: np.ndarray):
         headerX0=0.0, headerX1=float(width),
     )
     box = MeasureBox(index=1, printed=None, x0=4.0, x1=float(width - 4), width=float(width - 8))
-    return measure_context(arr, system, box, DEG)
+    # 归属单测不关心小节边界，窗口不外扩（边界处理在 test_staff_read 里测）。
+    return measure_context(arr, system, box, DEG, x_margin_deg=0)
 
 
 def _group(arr: np.ndarray):

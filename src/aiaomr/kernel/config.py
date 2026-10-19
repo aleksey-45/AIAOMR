@@ -152,6 +152,8 @@ class StaffConfig:
     """
 
     band_margin_deg: float
+    # 小节窗口左右外扩（SR-14）：边界上的符干/符头不能被切掉；归属按"中心落在本小节"判。
+    measure_margin_deg: float
     line_erase_pad_px: int
     head_w_deg: tuple[float, float]
     head_h_deg: tuple[float, float]
@@ -268,6 +270,7 @@ _SCHEMA: dict[str, str] = {
     # spec-staff.md §11：读五线谱层的阈值。
     # 长度、间距的单位都是 deg（压缩后谱线间距），只有抹线余量与附点面积下限不是。
     "staff.band_margin_deg": _FLOAT,
+    "staff.measure_margin_deg": _FLOAT,
     "staff.line_erase_pad_px": _INT,
     "staff.head_w_deg": _FLOAT_PAIR,
     "staff.head_h_deg": _FLOAT_PAIR,

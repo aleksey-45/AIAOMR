@@ -750,6 +750,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `structure.change_min_run` | 3 | A11/A12 聚类检测所需的最小连续小节数 |
 | `run.inflight_grace_ms` | 30000 | 阻断时等待在途请求返回的宽限（用于准确记账） |
 | `staff.band_margin_deg` | 4.0 | 五线谱带上下余量（`spec-staff.md` SR-10/SR-12） |
+| `staff.measure_margin_deg` | 0.5 | 小节窗口左右外扩（SR-14）；只作上下文，符号归属仍按中心落在小节框内判 |
 | `staff.line_erase_pad_px` | 1 | 抹谱线时按整条线厚再加的抗锯齿余量（SR-11） |
 | `staff.head_w_deg` | 0.7–1.9 | 符头宽度范围 |
 | `staff.head_h_deg` | 0.3–1.2 | 符头高度范围 |

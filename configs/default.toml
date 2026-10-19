@@ -77,6 +77,8 @@ inflight_grace_ms = 30000
 #
 # 五线谱带上下余量（SR-10/SR-12）。
 band_margin_deg = 4.0
+# 小节窗口左右外扩，deg（SR-14）：只作为上下文，符号归属仍按中心落在本小节判。
+measure_margin_deg = 0.5
 # 抹谱线时按整条线厚再加的抗锯齿余量，像素（SR-11）。
 line_erase_pad_px = 1
 # 符头宽度范围，deg（SR-20）。

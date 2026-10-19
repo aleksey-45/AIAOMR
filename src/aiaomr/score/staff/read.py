@@ -109,6 +109,62 @@ def _rest_beats(findings: dict) -> tuple[list[RhythmBeat], list[tuple[str, dict]
     return beats, problems
 
 
+def _center(finding) -> float:
+    return float((finding.bbox[0] + finding.bbox[2]) / 2)
+
+
+def _own_window(
+    findings: dict[str, list],
+    ctx,
+    measure_box: MeasureBox,
+    system: System,
+    cfg: StaffConfig,
+    is_first_measure: bool,
+) -> dict[str, list]:
+    """只保留"属于本小节"的判据结论（SR-14），并挡掉系统头部谱号区的机头符号。
+
+    窗口左右各留了 `measure_margin_deg` 的余量（否则边界上的符干会被切掉），所以这里不能再
+    按窗口边界算，而是按**小节框**算：符号中心落在 `[x0, x1]` 才算本小节的。系统第一个小节
+    的窗口里还混着谱号/调号/拍号，它们都在 `headerX0..headerX1` 里，直接丢掉。
+    """
+    left = measure_box.x0 - ctx.left
+    right = measure_box.x1 - ctx.left
+    header_end = None
+    if (
+        is_first_measure
+        and system.headerX1 > system.headerX0
+        and system.headerX1 <= measure_box.x1
+    ):
+        header_end = system.headerX1 - ctx.left
+
+    band = (system.y1 - system.y0)
+    barline_tol = max(6.0, 0.8 * ctx.deg)
+    out: dict[str, list] = {}
+    for kind, items in findings.items():
+        kept = []
+        for finding in items:
+            if kind != "rest_bar":
+                center = _center(finding)
+                if center < left or center > right:
+                    continue
+                if header_end is not None and center < header_end:
+                    continue
+            kept.append(finding)
+        out[kind] = kept
+
+    # 窗口外扩后，小节线会整个落在窗口里；它和符干一样是竖线，靠"长度≈谱表高、
+    # 贴着小节边界"两个条件把它摘掉，别让它变成一根没有符头的假符干。
+    stems = out.get("stem", [])
+    out["stem"] = [
+        stem for stem in stems
+        if not (
+            min(abs(stem.value - left), abs(stem.value - right)) <= barline_tol
+            and abs((stem.bbox[3] - stem.bbox[1]) - band) <= 0.4 * ctx.deg
+        )
+    ]
+    return out
+
+
 def _abstains(problems: list[tuple[str, dict]], index: int) -> list[Abstain]:
     merged: dict[str, dict] = {}
     for reason, detail in problems:
@@ -133,6 +189,7 @@ def read_measure(
     ctx = measure_context(
         arr, system, measure_box, deg,
         margin_deg=cfg.band_margin_deg if margin_deg is None else margin_deg,
+        x_margin_deg=cfg.measure_margin_deg,
         line_runs=line_runs,
     )
     if ctx.dark.size == 0:
@@ -150,6 +207,8 @@ def read_measure(
     findings["rest_bar"] = RestBarCriterion(cfg).detect(ctx, findings)
     findings["rest_rect"] = RestRectCriterion(cfg).detect(ctx, findings)
     findings["rest_glyph"] = RestGlyphCriterion(cfg).detect(ctx, findings)
+    first_measure = bool(system.measures) and measure_box.index == system.measures[0].index
+    findings = _own_window(findings, ctx, measure_box, system, cfg, first_measure)
 
     # 多小节休止条：整小节一条休止（条数由印刷数字/模型给，本层只说"这是休止条"）。
     if findings["rest_bar"] and not findings["rest_rect"] and not findings["rest_glyph"]:

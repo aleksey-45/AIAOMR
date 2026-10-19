@@ -127,3 +127,20 @@ def test_whole_note_is_judged_as_whole() -> None:
     assert rhythm.status == "ok"
     assert [beat.duration for beat in rhythm.beats] == ["whole"]
     assert rhythm.beats[0].head == "hollow"
+
+
+def test_boundary_barline_is_not_counted_as_a_stem() -> None:
+    """窗口左右外扩后，小节线会整个落在窗口里；它不能被当成一根没有符头的符干（SR-14）。"""
+    arr = rhythm_measure([{"kind": "note"}] * 4, deg=DEG)
+    width = arr.shape[1]
+    system = System(
+        id=1, page=0, y0=60.0, y1=60.0 + 4 * DEG, tabY0=0.0, tabY1=0.0,
+        tabLines=[], measures=[], headerX0=0.0, headerX1=float(width),
+    )
+    box = MeasureBox(index=1, printed=None, x0=float(DEG), x1=float(width - DEG),
+                     width=float(width - 2 * DEG))
+
+    rhythm = read_measure(arr, system, box, DEG, expected_ticks=32)
+
+    assert rhythm.status == "ok"
+    assert [beat.duration for beat in rhythm.beats] == ["quarter"] * 4

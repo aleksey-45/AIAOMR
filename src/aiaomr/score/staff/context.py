@@ -77,6 +77,7 @@ def measure_context(
     margin_deg: float | None = None,
     erase_pad_px: int | None = None,
     line_runs: list[tuple[int, int]] | None = None,
+    x_margin_deg: float | None = None,
 ) -> GeoContext:
     """建一个小节窗口的几何上下文。
 
@@ -88,11 +89,13 @@ def measure_context(
         margin_deg = staff.band_margin_deg
     if erase_pad_px is None:
         erase_pad_px = staff.line_erase_pad_px
+    if x_margin_deg is None:
+        x_margin_deg = staff.measure_margin_deg
     top, bottom = staff_band(system, deg, margin_deg)
     top = max(0, top)
     bottom = min(arr.shape[0], bottom)
-    left = max(0, int(measure_box.x0))
-    right = min(arr.shape[1], int(measure_box.x1))
+    left = max(0, int(measure_box.x0 - x_margin_deg * deg))
+    right = min(arr.shape[1], int(measure_box.x1 + x_margin_deg * deg))
     if bottom - top < 4 or right - left < 4:
         return _empty(left, top, right - left, bottom - top, deg)
 

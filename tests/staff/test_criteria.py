@@ -25,7 +25,8 @@ def _context(beats: list[dict]):
     )
     box = MeasureBox(index=1, printed=None, x0=float(DEG), x1=float(width - DEG),
                      width=float(width - 2 * DEG))
-    return measure_context(arr, system, box, DEG)
+    # 判据单测不关心小节边界，窗口不外扩（边界处理在 test_staff_read 里测）。
+    return measure_context(arr, system, box, DEG, x_margin_deg=0)
 
 
 def test_stem_criterion_counts_stems() -> None:
