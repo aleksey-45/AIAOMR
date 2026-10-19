@@ -264,6 +264,15 @@ class MeasureRhythm(_Model):
 | `staff.dot_min_area_px` | 3 | 附点的绝对面积下限（平方像素；抗噪） |
 | `staff.dot_max_area_deg2` | 0.45 | 附点面积上限 = 该值 × deg²（挡掉整行墨迹） |
 | `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |
+| `staff.head_erode_deg` | 0.33 | 实心符头候选：腐蚀半径（deg）；谱线/符干/横梁被腐蚀掉，实心符头留核 |
+| `staff.head_ring_max_deg` | 0.55 | 空心符头的环壁最大厚度；超过说明这个空腔是横梁与谱线之间的缝，不是符头内部 |
+| `staff.head_cavity_min_h_deg` | 0.2 | 符头内空腔的最小高度（deg），更小的当噪点 |
+| `staff.head_cavity_aspect_max` | 3.0 | 符头内空腔的宽高比上限 |
+| `staff.dot_offset_deg` | [0.6, 1.6] | 附点相对符头中心的横向偏移区间（deg） |
+| `staff.dot_dy_deg` | 0.6 | 附点的纵向容差（±该值，deg） |
+| `staff.rest_rect_w_deg` | [1.1, 2.0] | 全/二分休止矩形的宽度区间；下限由真图实测从 1.2 调到 1.1（打上花火 m51 实宽 1.18、NIGHT DANCER m7/23/61 为 1.15） |
+| `staff.rest_rect_h_deg` | [0.15, 0.65] | 全/二分休止矩形的高度区间 |
+| `staff.rest_glyph_h_deg` | [1.0, 3.6] | 四分/八分休止字形的高度区间 |
 
 ## 12. 目录、文件与产物归属
 

@@ -85,6 +85,13 @@ head_h_deg = [0.3, 1.2]
 # 填充率低于此为空心；高于下面那一项为实心；落在中间 abstain（AR-02，SR-21）。
 head_fill_hollow_max = 0.55
 head_fill_filled_min = 0.75
+# 实心符头候选：腐蚀核大小，deg。细笔画（符干/谱线/空心环）会腐蚀掉，实心符头留下核（SR-20）。
+head_erode_deg = 0.33
+# 空心符头：环壁（空腔四周墨迹）最大厚度，deg；超过它的空腔（横梁与谱线之间的缝）不是符头。
+head_ring_max_deg = 0.55
+# 空心符头：被围空腔的高度下限与宽高比上限（deg / 无量纲）。
+head_cavity_min_h_deg = 0.2
+head_cavity_aspect_max = 3.0
 # 模板匹配（TM_CCOEFF_NORMED）采纳下限（SR-22）。
 template_ncc_min = 0.75
 # 符干长度范围，deg（SR-25）。
@@ -99,5 +106,15 @@ layer_gap_deg = 0.8
 dot_min_area_px = 3.0
 # 附点面积上限的 deg² 倍数，运行时上限 = dot_max_area_deg2 × deg²（SR-34）。
 dot_max_area_deg2 = 0.45
+# 附点锚点：离符头中心的横向距离区间，deg；纵向容差，deg（SR-33）。
+dot_offset_deg = [0.6, 1.6]
+dot_dy_deg = 0.6
+# 全休止/二分休止的实心矩形宽度，deg；两种只靠挂线位置区分（SR-37）。
+# 真图实测：视频截图里矩形实宽 1.15~1.29·deg，比规格初值 1.2 略窄，下限放到 1.1。
+rest_rect_w_deg = [1.1, 2.0]
+# 同一个实心矩形的高度范围，deg（比横梁薄、比附点厚）。
+rest_rect_h_deg = [0.15, 0.65]
+# 四分/八分/十六分/三十二分休止字形的高度范围，deg（SR-38/SR-39）。
+rest_glyph_h_deg = [1.0, 3.6]
 # 符头与符干配对的最大距离，deg（SR-40）。
 pair_max_deg = 1.2

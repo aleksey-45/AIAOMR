@@ -156,6 +156,12 @@ class StaffConfig:
     head_h_deg: tuple[float, float]
     head_fill_hollow_max: float
     head_fill_filled_min: float
+    # 实心符头判据：先腐蚀掉细笔画（符干、谱线、空心环），看有没有核留下（SR-20 候选实现）。
+    head_erode_deg: float
+    # 空心符头判据：被墨迹围住的空腔 + 四周环壁厚度上限（SR-21 的"环宽"）与空腔尺寸过滤。
+    head_ring_max_deg: float
+    head_cavity_min_h_deg: float
+    head_cavity_aspect_max: float
     template_ncc_min: float
     stem_len_deg: tuple[float, float]
     beam_coverage: float
@@ -165,6 +171,15 @@ class StaffConfig:
     # 上限是 deg² 的倍数，所以拆成两个字段，运行时上限 = dot_max_area_deg2 × deg²。
     dot_min_area_px: float
     dot_max_area_deg2: float
+    # 附点锚点：符头中心偏右 dot_offset_deg=[近,远]，纵向 dot_dy_deg（SR-33）。
+    dot_offset_deg: tuple[float, float]
+    dot_dy_deg: float
+    # 全休止/二分休止的实心矩形宽度（SR-37）；两种休止只靠挂线位置区分。
+    rest_rect_w_deg: tuple[float, float]
+    # 同一个实心矩形的高度范围，deg；比横梁薄、比附点厚。
+    rest_rect_h_deg: tuple[float, float]
+    # 四分/八分/十六分/三十二分休止字形的高度范围（SR-38/SR-39）。
+    rest_glyph_h_deg: tuple[float, float]
     pair_max_deg: float
 
 
@@ -233,6 +248,10 @@ _SCHEMA: dict[str, str] = {
     "staff.head_h_deg": _FLOAT_PAIR,
     "staff.head_fill_hollow_max": _FLOAT,
     "staff.head_fill_filled_min": _FLOAT,
+    "staff.head_erode_deg": _FLOAT,
+    "staff.head_ring_max_deg": _FLOAT,
+    "staff.head_cavity_min_h_deg": _FLOAT,
+    "staff.head_cavity_aspect_max": _FLOAT,
     "staff.template_ncc_min": _FLOAT,
     "staff.stem_len_deg": _FLOAT_PAIR,
     "staff.beam_coverage": _FLOAT,
@@ -241,6 +260,12 @@ _SCHEMA: dict[str, str] = {
     # 规格 §5 的 dot 一行写成 "3–0.45·deg²"：下限是平方像素，上限是 deg² 的倍数。
     "staff.dot_min_area_px": _FLOAT,
     "staff.dot_max_area_deg2": _FLOAT,
+    "staff.dot_offset_deg": _FLOAT_PAIR,
+    "staff.dot_dy_deg": _FLOAT,
+    # spec-staff.md §5.6：全/二分休止矩形宽度（SR-37）、小休止字形高度（SR-38/SR-39）。
+    "staff.rest_rect_w_deg": _FLOAT_PAIR,
+    "staff.rest_rect_h_deg": _FLOAT_PAIR,
+    "staff.rest_glyph_h_deg": _FLOAT_PAIR,
     "staff.pair_max_deg": _FLOAT,
 }
 
@@ -270,6 +295,24 @@ def repo_root() -> Path:
         if (parent / "configs" / "default.toml").is_file():
             return parent
     raise ConfigError(f"从 {module} 向上找不到含 configs/default.toml 的仓库根")
+
+
+def load_staff_config() -> StaffConfig:
+    """只读 `configs/default.toml` 的 `[staff]` 组。
+
+    读谱层的阈值与 provider 无关，所以不需要 provider 文件；判据的缺省构造函数用这个，
+    免得把阈值又写一份在代码里。命令行/编排层要覆盖时照常传 `load_config(...).staff`。
+    """
+    default_path = repo_root() / "configs" / "default.toml"
+    flat = _flatten(_read_toml(default_path))
+    keys = {key: kind for key, kind in _SCHEMA.items() if key.startswith("staff.")}
+    missing = sorted(key for key in keys if key not in flat)
+    if missing:
+        raise ConfigError(f"缺少参数：{', '.join(missing)}（来自 {default_path}）")
+    values = {
+        key: _coerce(kind, flat[key], f"{key}（来自 {default_path}）") for key, kind in keys.items()
+    }
+    return StaffConfig(**{key.partition(".")[2]: value for key, value in values.items()})
 
 
 def load_config(provider: str, overrides: Mapping[str, Any] | None = None) -> Config:
@@ -459,5 +502,6 @@ __all__ = [
     "StaffConfig",
     "StructureConfig",
     "load_config",
+    "load_staff_config",
     "repo_root",
 ]
