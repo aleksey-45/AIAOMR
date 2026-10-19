@@ -33,10 +33,6 @@ KERNEL_ALLOWED_EXTERNAL = {"pydantic", "tomli", "tomllib"}
 # LAY-03/LAY-04：只有 providers/ 允许直接发 HTTP。
 HTTP_CLIENTS = ("requests", "urllib3", "httpx", "aiohttp", "http.client", "urllib.request")
 
-# LAY-09：读五线谱（score/staff/）只许标准库、numpy、cv2 与 kernel/其它 L3 模块；
-# 不许调模型、不许碰 providers/measure/writers（spec-staff.md §12.5）。
-STAFF_ALLOWED_EXTERNAL = {"numpy", "cv2"}
-
 
 def _module_name(path: Path, root: Path) -> str:
     parts = list(path.relative_to(root.parent).with_suffix("").parts)
@@ -87,23 +83,6 @@ def violations(root: Path = SRC_ROOT):
         layer = parts[1] if len(parts) > 1 else ""
         for target, lineno in _import_targets(path, root):
             top = target.split(".")[0]
-            if rel.startswith("aiaomr/score/staff/"):
-                if (
-                    top not in sys.stdlib_module_names
-                    and top not in STAFF_ALLOWED_EXTERNAL
-                    and not target.startswith(PKG)
-                ):
-                    problems.append(
-                        f"{rel}:{lineno}: LAY-09 score/staff/ 只允许标准库、numpy 与 cv2，"
-                        f"这里 import 了 {target}"
-                    )
-                elif target.startswith(PKG + ".") and target.split(".")[1] in (
-                    "providers", "measure", "writers",
-                ):
-                    problems.append(
-                        f"{rel}:{lineno}: LAY-09 score/staff/ 禁止 import "
-                        f"{target.split('.')[1]}/（{target}）"
-                    )
             if layer == "kernel":
                 allowed = (
                     top in sys.stdlib_module_names
@@ -229,22 +208,3 @@ def test_layers_may_not_import_eval_or_cli(tmp_path):
     assert any("LAY-06" in problem for problem in problems)
     problems = _violations_of(tmp_path, "aiaomr/kernel/ir.py", "from aiaomr.cli import run\n")
     assert any("LAY-01" in problem for problem in problems)
-
-
-def test_staff_may_not_import_model_layers(tmp_path):
-    """LAY-09：读谱层不调模型、不碰 providers/measure/writers（spec-staff.md §12.5）。"""
-    problems = _violations_of(
-        tmp_path, "aiaomr/score/staff/read.py", "from aiaomr.providers import base\n"
-    )
-    assert any("LAY-09" in problem for problem in problems)
-    problems = _violations_of(
-        tmp_path, "aiaomr/score/staff/heads.py", "from aiaomr.measure import schema\n"
-    )
-    assert any("LAY-09" in problem for problem in problems)
-
-
-def test_staff_may_import_numpy_and_cv2(tmp_path):
-    problems = _violations_of(
-        tmp_path, "aiaomr/score/staff/heads.py", "import numpy\nimport cv2\n"
-    )
-    assert problems == []

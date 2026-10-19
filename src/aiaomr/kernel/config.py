@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -143,74 +142,6 @@ class RunConfig:
 
 
 @dataclass(frozen=True)
-class StaffConfig:
-    """§5 staff 组：读五线谱层的全部阈值（`spec-staff.md` §11）。
-
-    长度、间距一类量的单位都是 deg（压缩后谱线间距），只有抹线余量是像素、
-    附点面积下限是平方像素；单位写在字段名里，免得调用方猜。
-    阈值只是初始值，改动必须按 `spec-staff.md` §11 写清"改了哪个值、哪张样本、前后各错几拍"。
-    """
-
-    band_margin_deg: float
-    # 小节窗口左右外扩（SR-14）：边界上的符干/符头不能被切掉；归属按"中心落在本小节"判。
-    measure_margin_deg: float
-    line_erase_pad_px: int
-    head_w_deg: tuple[float, float]
-    head_h_deg: tuple[float, float]
-    head_aspect_min: float
-    head_fill_hollow_max: float
-    head_fill_filled_min: float
-    # 实心符头判据：先腐蚀掉细笔画（符干、谱线、空心环），看有没有核留下（SR-20 候选实现）。
-    head_erode_deg: float
-    # 空心符头判据：被墨迹围住的空腔 + 四周环壁厚度上限（SR-21 的"环宽"）与空腔尺寸过滤。
-    head_ring_max_deg: float
-    head_cavity_min_h_deg: float
-    head_cavity_aspect_max: float
-    template_ncc_min: float
-    # 模板归一化后的画布尺寸，像素（SR-22 的"按 bbox 归一化"）。
-    template_norm_w: int
-    template_norm_h: int
-    stem_len_deg: tuple[float, float]
-    beam_coverage: float
-    beam_thickness_deg: tuple[float, float]
-    # 横梁段（SR-28..30）：相邻符干的水平间距区间、段端点接符干的容差、
-    # 同一层内的行分组间隔；layer_gap_deg 是"两条横梁线算不同层"的纵向间距。
-    beam_gap_deg: tuple[float, float]
-    beam_attach_tol_deg: float
-    beam_row_gap_deg: float
-    layer_gap_deg: float
-    # 符尾区域（SR-31）：墨迹面积下限，deg²；行均值下限；行分组间隔，deg。
-    flag_min_ink_deg2: float
-    flag_row_mean: float
-    flag_row_gap_deg: float
-    # 规格 §5 把附点面积写成 "3–0.45·deg²"：下限是平方像素常数，
-    # 上限是 deg² 的倍数，所以拆成两个字段，运行时上限 = dot_max_area_deg2 × deg²。
-    dot_min_area_px: float
-    dot_max_area_deg2: float
-    # 附点锚点：符头中心偏右 dot_offset_deg=[近,远]，纵向 dot_dy_deg（SR-33）。
-    dot_offset_deg: tuple[float, float]
-    dot_dy_deg: float
-    # 双附点：第二个点相对第一个点的额外位移，deg；附点外接框上限，deg（SR-34）。
-    dot_second_gap_deg: float
-    dot_max_side_deg: float
-    # 多小节休止条：横向覆盖率下限（SR-39b）。
-    rest_bar_coverage: float
-    # 全休止/二分休止的实心矩形宽度（SR-37）；两种休止只靠挂线位置区分。
-    rest_rect_w_deg: tuple[float, float]
-    # 同一个实心矩形的高度范围，deg；比横梁薄、比附点厚。
-    rest_rect_h_deg: tuple[float, float]
-    # 矩形填充率下限；矩形贴到谱线的容差，deg（SR-37 的"挂线位置"判法）。
-    rest_rect_fill_min: float
-    rest_line_snap_deg: float
-    # 四分/八分/十六分/三十二分休止字形的高度范围（SR-38/SR-39）。
-    rest_glyph_h_deg: tuple[float, float]
-    # 四分休止字形高宽比下限；钩状休止的钩凸出量（相对字形宽）（SR-38/SR-39）。
-    rest_quarter_aspect: float
-    rest_hook_protrude_deg: float
-    pair_max_deg: float
-
-
-@dataclass(frozen=True)
 class Config:
     """合并后的不可变配置。按 §5 的分组用属性访问，例如 `cfg.crop.target_mp_max`。"""
 
@@ -225,7 +156,6 @@ class Config:
     skeleton: SkeletonConfig
     structure: StructureConfig
     run: RunConfig
-    staff: StaffConfig
 
 
 # 值的形状标签。只描述类型，不带默认值：默认值只在 TOML 里写一份。
@@ -235,7 +165,6 @@ _FLOAT = "float"
 _BOOL = "bool"
 _DECIMAL = "decimal"
 _INT_PAIR = "int_pair"
-_FLOAT_PAIR = "float_pair"
 
 # 参数登记表。逐项对应规格 §5 的参数表：不在表里的名字一律报错，不许静默忽略。
 _SCHEMA: dict[str, str] = {
@@ -267,51 +196,6 @@ _SCHEMA: dict[str, str] = {
     "skeleton.title_from_filename": _BOOL,
     "structure.change_min_run": _INT,
     "run.inflight_grace_ms": _INT,
-    # spec-staff.md §11：读五线谱层的阈值。
-    # 长度、间距的单位都是 deg（压缩后谱线间距），只有抹线余量与附点面积下限不是。
-    "staff.band_margin_deg": _FLOAT,
-    "staff.measure_margin_deg": _FLOAT,
-    "staff.line_erase_pad_px": _INT,
-    "staff.head_w_deg": _FLOAT_PAIR,
-    "staff.head_h_deg": _FLOAT_PAIR,
-    "staff.head_aspect_min": _FLOAT,
-    "staff.head_fill_hollow_max": _FLOAT,
-    "staff.head_fill_filled_min": _FLOAT,
-    "staff.head_erode_deg": _FLOAT,
-    "staff.head_ring_max_deg": _FLOAT,
-    "staff.head_cavity_min_h_deg": _FLOAT,
-    "staff.head_cavity_aspect_max": _FLOAT,
-    "staff.template_ncc_min": _FLOAT,
-    "staff.template_norm_w": _INT,
-    "staff.template_norm_h": _INT,
-    "staff.stem_len_deg": _FLOAT_PAIR,
-    "staff.beam_coverage": _FLOAT,
-    "staff.beam_gap_deg": _FLOAT_PAIR,
-    "staff.beam_attach_tol_deg": _FLOAT,
-    "staff.beam_row_gap_deg": _FLOAT,
-    "staff.beam_thickness_deg": _FLOAT_PAIR,
-    "staff.layer_gap_deg": _FLOAT,
-    # 符尾区域（SR-31）的三个阈值。
-    "staff.flag_min_ink_deg2": _FLOAT,
-    "staff.flag_row_mean": _FLOAT,
-    "staff.flag_row_gap_deg": _FLOAT,
-    # 规格 §5 的 dot 一行写成 "3–0.45·deg²"：下限是平方像素，上限是 deg² 的倍数。
-    "staff.dot_min_area_px": _FLOAT,
-    "staff.dot_max_area_deg2": _FLOAT,
-    "staff.dot_offset_deg": _FLOAT_PAIR,
-    "staff.dot_dy_deg": _FLOAT,
-    "staff.dot_second_gap_deg": _FLOAT,
-    "staff.dot_max_side_deg": _FLOAT,
-    # spec-staff.md §5.6：休止三组与多小节休止条的阈值（SR-37..39b）。
-    "staff.rest_bar_coverage": _FLOAT,
-    "staff.rest_rect_w_deg": _FLOAT_PAIR,
-    "staff.rest_rect_h_deg": _FLOAT_PAIR,
-    "staff.rest_rect_fill_min": _FLOAT,
-    "staff.rest_line_snap_deg": _FLOAT,
-    "staff.rest_glyph_h_deg": _FLOAT_PAIR,
-    "staff.rest_quarter_aspect": _FLOAT,
-    "staff.rest_hook_protrude_deg": _FLOAT,
-    "staff.pair_max_deg": _FLOAT,
 }
 
 _GROUPS: tuple[tuple[str, type], ...] = (
@@ -326,7 +210,6 @@ _GROUPS: tuple[tuple[str, type], ...] = (
     ("skeleton", SkeletonConfig),
     ("structure", StructureConfig),
     ("run", RunConfig),
-    ("staff", StaffConfig),
 )
 
 
@@ -340,25 +223,6 @@ def repo_root() -> Path:
         if (parent / "configs" / "default.toml").is_file():
             return parent
     raise ConfigError(f"从 {module} 向上找不到含 configs/default.toml 的仓库根")
-
-
-@lru_cache(maxsize=1)
-def load_staff_config() -> StaffConfig:
-    """只读 `configs/default.toml` 的 `[staff]` 组（结果缓存：判据的缺省构造会反复取它）。
-
-    读谱层的阈值与 provider 无关，所以不需要 provider 文件；判据的缺省构造函数用这个，
-    免得把阈值又写一份在代码里。命令行/编排层要覆盖时照常传 `load_config(...).staff`。
-    """
-    default_path = repo_root() / "configs" / "default.toml"
-    flat = _flatten(_read_toml(default_path))
-    keys = {key: kind for key, kind in _SCHEMA.items() if key.startswith("staff.")}
-    missing = sorted(key for key in keys if key not in flat)
-    if missing:
-        raise ConfigError(f"缺少参数：{', '.join(missing)}（来自 {default_path}）")
-    values = {
-        key: _coerce(kind, flat[key], f"{key}（来自 {default_path}）") for key, kind in keys.items()
-    }
-    return StaffConfig(**{key.partition(".")[2]: value for key, value in values.items()})
 
 
 def load_config(provider: str, overrides: Mapping[str, Any] | None = None) -> Config:
@@ -508,18 +372,6 @@ def _coerce(kind: str, value: Any, where: str) -> Any:
         if low > high:
             raise ConfigError(f"{where} 的下限 {low} 大于上限 {high}")
         return (low, high)
-    if kind is _FLOAT_PAIR:
-        # 区间里每项都必须是真的数字；bool 是 int 的子类，显式挡掉。
-        if (
-            not isinstance(value, (list, tuple))
-            or len(value) != 2
-            or any(type(item) not in (int, float) for item in value)
-        ):
-            raise ConfigError(f"{where} 必须是两个数字组成的区间 [下限, 上限]，拿到 {value!r}")
-        low, high = float(value[0]), float(value[1])
-        if low > high:
-            raise ConfigError(f"{where} 的下限 {low} 大于上限 {high}")
-        return (low, high)
     raise ConfigError(f"内部错误：{where} 的形状 {kind!r} 未登记")
 
 
@@ -545,9 +397,7 @@ __all__ = [
     "RetainConfig",
     "RunConfig",
     "SkeletonConfig",
-    "StaffConfig",
     "StructureConfig",
     "load_config",
-    "load_staff_config",
     "repo_root",
 ]

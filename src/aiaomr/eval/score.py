@@ -23,7 +23,7 @@ DEFAULT_THRESHOLDS = {
 }
 
 # 真值 JSON 里的 ticks 是 alphaTab 的 beat.playbackDuration，走 MIDI 时间轴：四分音符 = 960。
-# 本项目不变量（score.verify.invariants）用另一种 tick：四分音符 = 8（spec-staff §1）。
+# 本项目不变量（score.verify.invariants）用另一种 tick：四分音符 = 8（spec-v3 §1）。
 # 真值保留 alphaTab 原值，校验时按这个比例换算，不把两种单位混着比。
 _TRUTH_TICKS_PER_QUARTER = 960
 _PROJECT_TICKS_PER_QUARTER = 8

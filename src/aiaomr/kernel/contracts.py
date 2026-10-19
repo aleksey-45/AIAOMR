@@ -6,9 +6,6 @@
 
 `Crop.has_clef` 是 RD-04 的闸门：不含谱号区的裁片禁止送出，所以这个字段必须有，
 而且必须是真正的布尔值，不能被字符串之类的真值混过去。
-
-读五线谱层的 `StaffLine`/`RhythmBeat`/`Abstain`/`MeasureRhythm` 见 `spec-staff.md` §10：
-装配层也要读它们，所以放在 kernel，不放 `score/staff/`；这里同样只有数据。
 """
 
 from __future__ import annotations
@@ -21,19 +18,15 @@ from .errors import ErrorCode
 from .ir import Beat, Judgement, KeySignature, SkeletonProvenance, Tempo, TimeSignature
 
 __all__ = [
-    "Abstain",
     "Crop",
     "Judgement",
     "MeasureBox",
     "MeasureRead",
     "MeasureResult",
-    "MeasureRhythm",
     "MeasureTask",
     "Page",
     "PageSet",
-    "RhythmBeat",
     "Skeleton",
-    "StaffLine",
     "System",
 ]
 
@@ -54,18 +47,6 @@ class MeasureBox(_Model):
     width: float
 
 
-class StaffLine(_Model):
-    """一个五线谱带里的一条谱线（一行连续的谱线像素 run）。
-
-    依据 `spec-staff.md` 的 R-10：定位层交出 run 的起止行号与中心，读谱层直接拿来
-    抹线、定 deg，不重新定位。厚度就是 `bottom - top + 1`，不另存一份字段。
-    """
-
-    top: int
-    bottom: int
-    center: float
-
-
 class System(_Model):
     """一个系统：上面五线谱带，下面 TAB 带，外加谱号区的横向范围。"""
 
@@ -79,8 +60,6 @@ class System(_Model):
     measures: list[MeasureBox] = Field(default_factory=list)
     headerX0: float
     headerX1: float
-    # 五线谱那 5 条线的 run（R-10）。老构图没有这项，默认空，读谱层按空表处理。
-    staffLines: list[StaffLine] = Field(default_factory=list)
 
 
 class Page(_Model):
@@ -140,49 +119,6 @@ class MeasureResult(_Model):
     reads: list[MeasureRead] = Field(default_factory=list)
     usage: dict[str, Any] | None = None
     errorCode: ErrorCode | None = None
-
-
-class RhythmBeat(_Model):
-    """读谱层读出的一拍上的事实（`spec-staff.md` §10）。
-
-    `x` 只用于排序与取证，不是坐标结论；`confidence` 只用来挑争议点，
-    禁止拿来做加权平均或软判决。`duration` 为空表示读不出（abstain），不是猜值。
-    """
-
-    x: float
-    kind: Literal["note", "rest"]
-    duration: Literal["whole", "half", "quarter", "eighth", "16th", "32nd"] | None = None
-    dots: int = Field(default=0, ge=0, le=2)
-    noteCount: int = 1
-    head: Literal["hollow", "filled"] | None = None
-    beams: int = 0
-    group: int | None = None
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    evidence: dict[str, Any] = Field(default_factory=dict)
-
-
-class Abstain(_Model):
-    """一处读不准的记录：AR-xx 编号加上位置与证据，不许往下编（`spec-staff.md` §9、§10）。"""
-
-    reason: str = Field(pattern=r"^AR-\d{2}$")
-    measure: int
-    beat: int | None = None
-    detail: dict[str, Any] = Field(default_factory=dict)
-
-
-class MeasureRhythm(_Model):
-    """一个谱面小节的读谱结果（`spec-staff.md` §10）。
-
-    `ticks` 只在 `status == "ok"` 时有意义；`status` 的三种取值是组织层的结论，
-    这里只做数据校验，不做判断。
-    """
-
-    index: int
-    status: Literal["ok", "partial", "unknown"]
-    beats: list[RhythmBeat] = Field(default_factory=list)
-    abstains: list[Abstain] = Field(default_factory=list)
-    ticks: int = 0
-    deg: float = 0.0
 
 
 class Skeleton(_Model):

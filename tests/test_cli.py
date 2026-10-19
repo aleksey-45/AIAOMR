@@ -146,27 +146,3 @@ def test_until_stage_stops_early(tmp_path: Path) -> None:
     finished = [event for event in events if event["event"] == "run.finished"][-1]
     assert finished["data"]["status"] == "stopped"
     assert not (out_dir / "测试曲.gp5").exists()
-
-
-def test_staff_stage_writes_rhythm_and_events(tmp_path: Path) -> None:
-    """`--until staff` 必须跑完读谱阶段：产物落盘、事件按小节发、不联网（约定见 spec-staff §12.4）。"""
-    page = make_page(tmp_path)
-    out_dir = tmp_path / "out"
-    write_fixtures(out_dir)
-
-    code, out_dir = run_cli(tmp_path, page, "--until", "staff")
-
-    assert code == 0
-    rhythm_path = out_dir / "staff" / "rhythm.json"
-    assert rhythm_path.exists()
-    payload = json.loads(rhythm_path.read_text(encoding="utf-8"))
-    events = read_events(out_dir)
-    per_measure = [event for event in events if event["event"] == "staff.measure"]
-    assert len(per_measure) == len(payload["measures"])
-    done = [event for event in events if event["event"] == "staff.done"][-1]
-    assert done["data"]["measures"] == len(payload["measures"])
-    finished = [event for event in events if event["event"] == "run.finished"][-1]
-    assert finished["data"]["status"] == "stopped"
-    assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
-    # 读谱阶段不调模型：没有任何 read.* 事件。
-    assert not [event for event in events if event["event"].startswith("read.")]

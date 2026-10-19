@@ -1,7 +1,12 @@
 # AIAOMR 现状（人工审核用）
 
-> 基线：commit `635de1a`（2026-10-19）。这份文档的目的是**让人审**，不是汇报成绩；
-> 能力、缺口、已知问题和没验证的东西都列出来。文档里的数字都可以用文末命令复现。
+> 基线：决定废弃几何读谱层之后的 commit（2026-10-19）。这份文档的目的是**让人审**，
+> 不是汇报成绩；能力、缺口、已知问题和没验证的东西都列出来。数字都可以用文末命令复现。
+>
+> **2026-10-19 更新（重要）**：几何读谱层（`score/staff/`，13 个文件约 1776 行）已整体废弃，
+> 代码与规范移入 `legacy/geometry/`，CLI 的 `staff` 阶段、`MeasureRhythm` 等契约与 40 个
+> `staff.*` 参数一并移除。原因与复活方法见 [`legacy/README.md`](../legacy/README.md)。
+> 下面凡是提到“读五线谱/几何时值”的段落都已按此更新；仍保留的几何只有定位层。
 
 ## 1. 一句话与边界
 
@@ -11,7 +16,7 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 
 核心分工（多轮讨论后定的）：
 
-- **几何**：定位、谱线、符号（符头/符干/横梁/符尾/附点/休止）、时值、拍格校验；
+- **几何**：只保留定位（系统、小节网格、TAB 带、裁片坐标）；符号识别层的尝试已废弃，见 `legacy/`；
 - **骨架层**：谱号/调号/拍号/调弦/速度/曲名这些全局事实，**先读好**，绝不进读小节的窗口；
 - **模型**：读小节的弦号、品位、时值（当前 P1 路径），未来做争议小节的复读与终裁；
 - **程序**：音高由调弦+品数算，不变量验算，报警不阻断。
@@ -25,20 +30,18 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 | 读小节（模型，含弦号/品位/时值） | 能 | P1 四首跑通，代价约 ¥0.08–0.13/首 |
 | 验算（A1–A5、A4b） | 能 | `verify` 阶段，报警不阻断 |
 | 装配 + 写 `.gp5` + 往返核对 | 能（结构上） | P1 四首都能写出文件，但都因小节和报警被阻断 |
-| 读五线谱（几何） | **部分能**：符头/休止/附点/归组/时值表/拍格已实现，真页面第一系统 7 小节里 **2 小节逐拍正确**，其余 5 小节仍 abstain | 本文 §9 |
-| 几何时值接进 IR/装配 | **未做** | `read.py` 输出 `MeasureRhythm`，目前只在 CLI 的 `staff` 阶段落盘，尚未参与 `.gp5` 生成 |
+| 读五线谱（几何） | **已废弃**：真页面只做到 2/7 逐拍正确，代码移入 `legacy/geometry/` | `legacy/README.md` |
 | 复读、终裁、A6–A12、缓存/预算并发、语料门 | **未做** | 见 P2 计划 |
 
 ## 3. 端到端流程与产物
 
-九个阶段（`--until` 可停在任意一个）：`input → locate → skeleton → staff → read → verify → assemble → write → audit`。
+八个阶段（`--until` 可停在任意一个）：`input → locate → skeleton → read → verify → assemble → write → audit`。
 
 | 阶段 | 输入 | 产物（`out/<song>/`） | 联网 |
 |---|---|---|---|
 | input | 图片路径/目录 | `input.json` | 否 |
 | locate | 图片 | `pageset.json` | 否 |
 | skeleton | 首页头部裁片 + 调号窄图 | `skeleton.json` | 是 |
-| staff | `pageset` + `skeleton`（拍号） | `staff/rhythm.json`（每小节 `MeasureRhythm` + 汇总） | **否** |
 | read | 系统裁片 | `measures/*.json`、`calls/*.json` | 是 |
 | verify | 小节读数 + 骨架 | `judgements.json` | 否 |
 | assemble | 读数 + 骨架 + 报警 | `ir.json`（内存，完整跑到 audit 才落盘） | 否 |
@@ -51,15 +54,14 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 ## 4. 代码结构
 
 依赖四层：`kernel`（纯数据）← `providers`(L1) ← `measure`(L2) ← `score`(L3) ← `writers`(L4)，`eval`/`cli` 在最上面；
-由 `tests/test_layers.py` 用 AST 扫描强制（LAY-01..09，含 `score/staff/` 的 LAY-09）。
+由 `tests/test_layers.py` 用 AST 扫描强制（LAY-01..08；LAY-09 随 `score/staff/` 一并移除）。
 
 | 包 | 行数 | 职责 |
 |---|---|---|
-| `kernel/` | 1084 | IR、契约、错误码、配置（`staff.*` 40 个参数） |
+| `kernel/` | 约 950 | IR、契约、错误码、配置 |
 | `providers/` | 422 | DeepSeek 接入（唯一发 HTTP 的目录）、stub 回放 |
 | `measure/` | 478 | 裁片规划（1.6 MP）、小节 schema、单次调用 |
 | `score/locate/` | 394 | 纯 CV：系统、小节网格、谱线行 run、调号窄图 |
-| `score/staff/` | 1776 | 读五线谱（见下） |
 | `score/skeleton/` | 305 | 骨架读取（分级、兜底） |
 | `score/verify/` | 187 | 不变量 A1–A5、A4b |
 | `score/assemble/` | 103 | 多小节休止展开、小节号链、IR 组装 |
@@ -67,36 +69,22 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 | `eval/` | 208 | 打分器与真值校验 |
 | `cli.py` + `events.py` + `__main__.py` | 1074 | 编排、事件流、人读渲染 |
 
-`score/staff/` 内部（规范 `docs/spec-staff.md` §12 一一对应）：
-
-| 文件 | 行数 | 职责 | 备注 |
-|---|---|---|---|
-| `read.py` | 302 | 编排 | **偏大**，吸收了窗口/归属/边界过滤规则 |
-| `heads.py` | 281 | 符头（腐蚀留核 / 空腔两条支路 + 分类） | 真样本 28/28 正确 |
-| `group.py` | 225 | 符头配符干、横梁段建图与合并、组内顺序、入射条数 | |
-| `rests.py` | 196 | 全/二分休止（挂线位置）、四分（折线）、钩状（钩数）、多小节条 | 真页面误报主要来源 |
-| `context.py` | 136 | 窗口（SR-10/14）、按整条线厚抹谱线、按列归属前的内容框 | |
-| `beams.py` | 133 | 横梁段（左右端点 + 接哪根符干）、符尾 | |
-| `dots.py` | 118 | 附点/双附点（锚符头右侧）、断音点排除 | |
-| `organize.py` | 118 | 拍格表 + 三条否决（连梁组边界/越界/和等于拍号） | |
-| `templates.py` | 110 | 自举 medoid 模板 + NCC | 只在填充率矛盾时复核 |
-| `stems.py` | 71 | 符干候选 | |
-| `duration.py` | 41 | 时值表（纯函数） | tick 真相源之一（另一处在 `rests.py`） |
-| `base.py` | 34 | `Finding`/`Criterion` | |
+读五线谱层（原 `src/aiaomr/score/staff/`，13 个文件约 1776 行）已移入 `legacy/geometry/`，不再在源码树里；
+它的文件清单与职责见 `legacy/geometry/spec-staff.md` §12。
 
 ## 5. 规范与文档地图
 
 | 文档 | 定位 | 状态 |
 |---|---|---|
 | `AGENTS.md` | 仓库规矩（红线、分层、写作用域、测试要求） | 有效 |
-| `docs/spec-v3.md`（1327 行） | **规范，唯一权威**：接口、错误码、参数表、事件、失败语义 | 与代码同步到 `635de1a`；§2.11 已登记 staff 阶段 |
-| `docs/spec-staff.md`（429 行） | 读五线谱的配套规范：SR-01..62、AR-01..12、目录归属、参数 | 与代码同步 |
+| `docs/spec-v3.md` | **规范，唯一权威**：接口、错误码、参数表、事件、失败语义 | 与代码同步；staff 相关章节已摘除 |
+| `legacy/geometry/spec-staff.md`（429 行） | **已废弃**的读五线谱配套规范，随代码一起存档 | 只作历史参考 |
 | `docs/plan-v3.md`（557 行） | 方案与取舍（为什么这么设计、放弃了什么） | 有效 |
 | `docs/superpowers/plans/` | 三个计划：控制台版（P0+P1，任务 0–15）、P2（11 任务）、读谱小计划（6 任务） | 勾选框状态过期，进度看 git log |
 | `docs/p0-results.md` | P0 实测：1.6 MP、thinking 关、单系统整图 | 已冻结 |
 | `docs/p1-report.md` | P1 验收：0/4 通过、卡在哪、成本 | 已冻结 |
 | `docs/plan-measure-score.md` | **设计稿**：小节打分 → 直接通过/AI 复审/判错 三档 | 未实现 |
-| `README.md`（283 行） | 给使用者的入口文档 | 已按 staff 阶段更新 |
+| `README.md` | 给使用者的入口文档 | 已按废弃决定更新 |
 
 ## 6. 关键设计决策（审核重点）
 
@@ -112,22 +100,19 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 
 ## 7. 参数与阈值
 
-`configs/default.toml` 的 `[staff]` 有 40 个参数（另有 crop/read/locate/budget 等组），全部登记在
-`docs/spec-v3.md` §5 与 `docs/spec-staff.md` §11。已知问题：
-
-- `staff.beam_thickness_deg`、`staff.layer_gap_deg` 实际没有任何代码引用（死参数）；
-- `rests.py` 里还有一张 `REST_TICKS` 与 `duration.py` 的 `TICKS` 重复；
-- 阈值的“标定依据”大多写在参数表注释里，但**没有校准脚本/负样本集**，参数是逐症状调出来的。
+参数分三组：`crop`/`read`/`locate`/`budget`/`skeleton`/`structure`/`emit`/`adjudicate`/`retain`/`run`
+（`configs/default.toml`）。原来 `[staff]` 的 40 个几何阈值已随读谱层一起删除；这部分设计与
+“参数卫生”的教训留在 `legacy/` 供参考。
 
 ## 8. 测试现状
 
-- `pytest -q`：**257 通过、2 跳过**（跳过的是需要 `ALPHATAB_PATH` 的审计用例）。
-- 覆盖：kernel 契约/配置、providers 客户端、measure schema、locate 系统/小节、staff 各判据
-  （含 28 个真图样本、11 类，混淆表全对）、group/duration/organize、GP5 写出与往返、eval 校验、CLI 端到端（stub 回放）。
+- `pytest -q`：**140 通过、2 跳过**（跳过的是需要 `ALPHATAB_PATH` 的审计用例；废弃几何层后从 257 条降到 140 条）。
+- 覆盖：kernel 契约/配置、providers 客户端、measure schema、locate 系统/小节、GP5 写出与往返、
+  eval 校验、CLI 端到端（stub 回放）。几何读谱层的测试随之移入 `legacy/geometry/tests/`，不再参与全量测试。
 - **缺口**：没有真页面 golden 测试。m17/m21 逐拍正确是手跑脚本验证的，改动后没有自动回归门；
   真页面只验证了打上花火第 1 页第 1 系统，其他系统/歌没测。
 
-## 9. 真页面实测（打上花火 page1 第一系统，对照 GPX 真值）
+## 9. 真页面实测（几何层废弃前的最后一次实测，对照 GPX 真值，留存作证据）
 
 | 小节 | 真值 | 几何结果 | 结论 |
 |---|---|---|---|
@@ -145,16 +130,13 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 
 **P0（会直接决定成败）**
 
-1. **几何提取的结构问题**（详见 `docs/spec-staff.md` §4 与本人分析）：
-   - `read.py` 302 行，在吸收分割/归属规则，出现“补丁式过滤”；
-   - 判据之间用 `Finding.evidence` 的字符串键当契约（`attachLeft`、`anchor`、`category`…），改键无编译期保护；
-   - 三种表示（Finding → NoteGlyph → RhythmBeat）与两套坐标（窗口/原图）转换散在编排层；
-   - 死代码/死参数：`_nearest_stem`、`clear_rows`、`staff.beam_thickness_deg`、`staff.layer_gap_deg`。
-2. **预处理与分割没有重做**：全局阈值二值化、按等距网格整行抹谱线（会切坏穿线符号），
-   是“空心符头被切两半、附点被吃、假符干”的根因。方案已写（局部阈值、按列擦线、形态学提取、
-   负样本校准），未实现。
+1. **几何读谱层已废弃**（2026-10-19 执行）：一层 40 个参数、一批绝对像素偏移、补丁式过滤，
+   真页面只做到 2/7；代码与规范已移入 `legacy/geometry/`，CLI/契约/参数表已摘除。
+   替代路线回到“模型读时值、程序验算、几何只定位”。
+2. **时值主路径回到模型之后，精度上限由模型决定**：P1 的 A1 报警（时值和）仍然存在，
+   复读/终裁与 A6–A12 尚未实现；这是 P2 的主要缺口。
 3. **无真页面 golden 门**：现状无法自动防止回归。
-4. **几何时值未接进 IR**：`staff` 阶段产物尚未被装配层消费。
+4. **定位层遗留**：播放光标竖线被当小节线、page1 第 4 系统漏检、跨页重叠（backlog）。
 
 **P1（流程层的遗留）**
 
@@ -166,20 +148,19 @@ homr/oemer/Audiveris、不引入 litellm 之类中间层；模型只用 DeepSeek
 **P2（文档与一致性）**
 
 9. 计划文件里的勾选框与 README 的进度表都落后于代码；本文档为当前口径。
-10. `docs/spec-staff.md` §4 的 SR-13b/SR-14b 是这轮补的，其他章节还没有随真页面经验回写。
+10. `legacy/geometry/spec-staff.md` 是废弃版规范，不要再当权威读。
 
 ## 11. 钱与性能
 
 - P0 实测：13 次调用 ¥0.0324（thinking 开多一次 ¥0.0642）；结论是 thinking 关、裁片统一 1.6 MP、单系统整图。
 - P1：四首共约 ¥0.42；单次调用 ¥0.0025–0.0035；预算口径 **人民币每 8 小节，谷价，四位小数，默认 0.0150**。
-- `staff` 阶段纯本地计算，不花钱；当前速度：打上花火 4 页约数秒（Python + cv2）。
 
 ## 12. 怎么跑
 
 ```bash
 .venv/Scripts/python.exe -m pytest -q
 .venv/Scripts/python.exe -m aiaomr run --input "E:/Bass Guitar/AIAOMR/打上花火/1.png" \
-    --until staff --format ndjson
+    --until locate --format ndjson
 .venv/Scripts/python.exe tools/truth_to_gp5.py --truth out/tmp/x.json --out corpus/truth/x.gp5
 # 真值导出（需要 alphaTab）：
 ALPHATAB_PATH="E:/Bass Guitar/AIAOMR/tools/gpverify/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs" \
@@ -188,17 +169,16 @@ ALPHATAB_PATH="E:/Bass Guitar/AIAOMR/tools/gpverify/node_modules/@coderline/alph
 
 ## 13. 建议的审核顺序
 
-1. `docs/spec-staff.md` §2（三条铁律）、§5（判据）、§8（拍格与三条否决）——看设计是否成立；
-2. `src/aiaomr/score/staff/read.py` 与 `group.py`——看“补丁式规则”是否可接受（我认为该拆）；
-3. `src/aiaomr/score/staff/context.py`——看抹线方式（是否该换成按列擦线）；
-4. 本文 §9 的真页面结果与 §10 的问题清单——决定下一步是“先修结构”还是“先换提取算法”；
-5. `docs/plan-measure-score.md`——打分与三档分流的口径是否认可。
+1. [`legacy/README.md`](legacy/README.md)——废弃几何层的证据与复活步骤，确认这个决定是否认可；
+2. `docs/spec-v3.md` 与代码是否还对得上（本次已同步摘除 staff 阶段、契约、参数、事件）；
+3. `docs/plan-measure-score.md`——打分与三档分流的口径是否认可（这是“模型读、分数挑争议”的配套）；
+4. 本文 §10 的问题清单——决定下一步是补模型侧的复读/终裁，还是先修定位层；
 
 ## 14. 需要你决定的三个点
 
-1. **顺序**：先做结构清理（`symbols.py`/`segment.py` 类型化拆分，约半天，行为不变），还是先做提取算法重写（二值化/按列擦线/形态学，收益大但会把规则再堆进 `read.py`）？我建议先结构、后算法。
-2. **分工**：几何是否继续做“全符号主读”，还是改成“模型读符号、几何只验算/复核”，或“几何只读 TAB 数字做锚点”？这决定后面投入的方向。
-3. **真页面门的范围**：只要求打上花火第一页，还是四首各取一页？后者需要先修定位层的三处遗留。
+1. ~~几何是否继续全符号主读~~ **已决定：不做**，几何只保留定位层；剩余决策是模型侧怎么补（复读/终裁）以及要不要用 TAB 数字做独立对账。
+2. **真页面门的范围**：只要求打上花火第一页，还是四首各取一页？后者需要先修定位层的三处遗留。
+3. **下一步优先级**：先补定位层三处遗留（影响裁片质量），还是先做 P2 的复读/终裁（影响读数质量）？
 
 ## 15. 我没验证过的、可能有错的地方
 

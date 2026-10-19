@@ -19,7 +19,6 @@ from decimal import Decimal
 from pathlib import Path
 
 from PIL import Image
-import numpy as np
 
 from .events import Emitter, HumanRenderer
 from .kernel.config import Config, ConfigError, load_config
@@ -39,7 +38,7 @@ from .writers.audit import audit, audit_passed
 from .writers.base import WriterError
 from .writers.registry import get_writer
 
-STAGES = ["input", "locate", "skeleton", "staff", "read", "verify", "assemble", "write", "audit"]
+STAGES = ["input", "locate", "skeleton", "read", "verify", "assemble", "write", "audit"]
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
 
@@ -316,71 +315,6 @@ def run_command(args) -> int:
             if args.until == "skeleton":
                 stopped = True
 
-        # ---- staff（读五线谱；不联网）---------------------------------
-        rhythms = []
-        staff_counts: dict[str, int] = {}
-        staff_reasons: dict[str, int] = {}
-        if not stopped:
-            start = stage_begin("staff")
-            from .score.staff.read import read_system
-            from .score.verify.invariants import effective_ts
-
-            signatures_by_measure = {}
-            for page in pageset.pages:
-                for system in page.systems:
-                    for box in system.measures:
-                        signature = effective_ts(skeleton.timeSignatures, box.index)
-                        if signature is not None:
-                            signatures_by_measure[box.index] = signature
-            rhythm_path = out_dir / "staff" / "rhythm.json"
-            if args.resume and rhythm_path.exists() and "staff" not in args.force:
-                payload = json.loads(rhythm_path.read_text(encoding="utf-8"))
-                from .kernel.contracts import MeasureRhythm
-
-                rhythms = [MeasureRhythm.model_validate(item) for item in payload["measures"]]
-                reporter.emit("staff", "staff.cached", file=str(rhythm_path))
-            else:
-                from .kernel.contracts import MeasureRhythm
-
-                for page, image in zip(pageset.pages, images):
-                    arr = np.asarray(image.convert("L"))
-                    for system in page.systems:
-                        deg = max(1.0, (system.y1 - system.y0) / 4.0)
-                        line_runs = (
-                            [(line.top, line.bottom) for line in system.staffLines]
-                            or None
-                        )
-                        for rhythm in read_system(arr, system, deg, signatures_by_measure, line_runs):
-                            rhythms.append(rhythm)
-                            reporter.emit(
-                                "staff", "staff.measure", index=rhythm.index,
-                                status=rhythm.status, ticks=rhythm.ticks,
-                                beats=[json.loads(beat.model_dump_json()) for beat in rhythm.beats],
-                                abstains=[json.loads(item.model_dump_json()) for item in rhythm.abstains],
-                            )
-                (out_dir / "staff").mkdir(parents=True, exist_ok=True)
-                _write_json(rhythm_path, {
-                    "measures": [json.loads(r.model_dump_json()) for r in rhythms],
-                    "summary": {
-                        "ok": sum(1 for r in rhythms if r.status == "ok"),
-                        "partial": sum(1 for r in rhythms if r.status == "partial"),
-                        "unknown": sum(1 for r in rhythms if r.status == "unknown"),
-                    },
-                })
-            staff_counts = {
-                "ok": sum(1 for r in rhythms if r.status == "ok"),
-                "partial": sum(1 for r in rhythms if r.status == "partial"),
-                "unknown": sum(1 for r in rhythms if r.status == "unknown"),
-            }
-            for rhythm in rhythms:
-                for item in rhythm.abstains:
-                    staff_reasons[item.reason] = staff_reasons.get(item.reason, 0) + 1
-            reporter.emit("staff", "staff.done", measures=len(rhythms), **staff_counts,
-                          abstainByReason=dict(sorted(staff_reasons.items())))
-            stage_end("staff", start, measures=len(rhythms))
-            if args.until == "staff":
-                stopped = True
-
         # ---- read -----------------------------------------------------
         results: list[MeasureResult] = []
         if not stopped:
@@ -516,7 +450,6 @@ def run_command(args) -> int:
                 "measures": len(ir.measures),
                 "calls": sum(1 for r in results if r.errorCode is None),
                 "alarms": len([alarm for alarm in alarms]) if "alarms" in locals() else 0,
-                "staff": {"counts": staff_counts, "abstains": dict(sorted(staff_reasons.items()))},
                 "audit": {k: audit_result.get(k) for k in ("available", "pitchMismatch", "barErrors")},
             })
 

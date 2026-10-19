@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ...kernel.contracts import StaffLine, System
+from ...kernel.contracts import System
 
 # 两行算同一组谱线的最大间隔（像素）。谱线本身是 1~3 px，间断只可能来自抗锯齿。
 _ROW_MERGE_GAP = 2
@@ -45,15 +45,13 @@ def row_groups(mask: np.ndarray, frac: float, axis: int = 1) -> list[int]:
     return [int(np.mean(group)) for group in groups]
 
 
-def staff_line_runs(
+def staff_lines(
     arr: np.ndarray,
     frac: float = 0.60,
     max_thickness: int | None = None,
-) -> list[tuple[int, int]]:
-    """返回谱线的**行 run**（起止行号，含两端），按 y 升序（R-10）。
+) -> list[int]:
+    """返回谱线中心的 y 坐标（含五线谱与 TAB 线，按 y 升序）。
 
-    只给中心行是不够的：读谱层抹线时必须抹掉整条线厚，否则上下两条边沿会留在图里，
-    被横梁判据当成两条横梁（真页面实测会把整小节读成十六分）。
     覆盖率用"墨迹像素 / 该行墨迹跨度"，所以短末行（只画到页面三成宽）也能算进来；
     厚度按"中位谱线厚度的倍数"过滤，多小节休止条、黑边、播放器进度条都会被丢掉。
     """
@@ -67,7 +65,6 @@ def staff_line_runs(
     extents = np.where(counts > 0, last - first + 1, 0)
     coverage = np.divide(counts, extents, out=np.zeros(height), where=extents > 0)
 
-    # 一条真实谱线的横向跨度至少要有页面的 10%：挡掉页眉文字、单个音符。
     min_extent = max(20, int(width * 0.10))
     line_rows = (counts > 0) & (extents >= min_extent) & (coverage > frac)
 
@@ -80,25 +77,10 @@ def staff_line_runs(
             runs.append([row])
     if not runs:
         return []
-
-    # 厚度上限按"相邻线组间距的下四分位"定，不用绝对像素：正常谱线 1~3 px，
-    # 多小节休止条会和谱线合成一个 ~24 px 的组，而黑边、播放条通常 40 px 以上。
     centers = [float(np.mean(run)) for run in runs]
     gaps = np.diff(centers) if len(centers) > 1 else np.array([60.0])
     limit = max_thickness or max(6, int(round(2.5 * float(np.percentile(gaps, 25)))))
-    return [(run[0], run[-1]) for run in runs if len(run) <= limit]
-
-
-def staff_lines(
-    arr: np.ndarray,
-    frac: float = 0.60,
-    max_thickness: int | None = None,
-) -> list[int]:
-    """返回谱线中心的 y 坐标（含五线谱与 TAB 线，按 y 升序）。"""
-    return [
-        int(round((top + bottom) / 2))
-        for top, bottom in staff_line_runs(arr, frac=frac, max_thickness=max_thickness)
-    ]
+    return [int(round(center)) for center, run in zip(centers, runs) if len(run) <= limit]
 
 
 def _uniform_spacing(lines: list[int], start: int, count: int, tol: float = _SPACING_TOL) -> float | None:
@@ -183,8 +165,7 @@ def find_systems(
     if min_w is None:
         min_w = max(20, int(page_width * 0.10))
 
-    runs = staff_line_runs(arr, frac=frac)
-    lines = [int(round((top + bottom) / 2)) for top, bottom in runs]
+    lines = staff_lines(arr, frac=frac)
     if not lines:
         return []
 
@@ -198,13 +179,6 @@ def find_systems(
     for system_id, (note_top, note_bottom, tab_top, tab_bottom, tab_count) in enumerate(
         pair_systems(lines, page_width, min_w, extents=extents), start=1
     ):
-        # 五线谱那 5 条的"行 run"交给读谱层：抹线要按整条线厚抹（R-10、SR-11）。
-        note_start = lines.index(int(note_top))
-        staff_lines_runs = [
-            StaffLine(top=float(runs[index][0]), bottom=float(runs[index][1]),
-                      center=float(lines[index]))
-            for index in range(note_start, min(note_start + 5, len(runs)))
-        ]
         # TAB 各弦的 y 坐标，顺序自上而下（对应 stringCount..1，提示词按这个顺序用）。
         tab_start = lines.index(int(tab_top))
         tab_lines = [float(y) for y in lines[tab_start : tab_start + tab_count]]
@@ -217,7 +191,6 @@ def find_systems(
                 tabY0=float(tab_top),
                 tabY1=float(tab_bottom),
                 tabLines=tab_lines,
-                staffLines=staff_lines_runs,
                 measures=[],
                 headerX0=0.0,
                 headerX1=float(page_width),

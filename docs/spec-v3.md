@@ -131,7 +131,6 @@ AIAOMR/
 | `providers/deepseek_flash/` | L1 | 请求构造、能力值、计费、prompt 差异、README | 裁切策略、验算、装配、导出 |
 | `measure/` | L2 | 裁切规划、小节 schema、单次调用的编排 | 页/系统级结构、IR 组装、文件写出 |
 | `score/locate/` | L3 | 纯 CV 几何测量（含谱线行 run、符干/横梁等笔画的位置与厚度） | 任何语义判定、任何 HTTP |
-| `score/staff/` | L3 | 五线谱符号读取：符头/符干/横梁/符尾/附点/休止的判据、归属、时值（§2.11、`docs/spec-staff.md`） | 联网、调模型、重新定位系统、音高/弦号/品位 |
 | `score/skeleton/` `score/verify/` `score/adjudicate/` `score/assemble/` | L3 | 骨架、不变量、复读终裁、装配 | 直接发 HTTP（必须经 L2） |
 | `score/schedule.py` | L3 | 并行、预算、重试编排 | 厂商参数 |
 | `writers/` | L4 | IR → gp5/musicxml/ascii，validate/roundtrip | 模型调用、裁切、验算 |
@@ -210,7 +209,6 @@ AIAOMR/
 | LAY-06 | 任何层**禁止** import `eval/` 与 `cli/`（依赖只能向下） |
 | LAY-07 | 厂商字面量（`deepseek`、`8192`、`1024`、`0.30` 等）**只允许**出现在 `providers/<name>/`、`configs/providers/`，以及 `configs/default.toml` 的 `provider.name` 一处 |
 | LAY-08 | 上述规则由 `tests/test_layers.py` 用 `ast` 静态扫描强制；违反即 CI 失败 |
-| LAY-09 | `score/staff/` 只许标准库、`numpy`、`cv2` 与 `kernel/`、其它 L3 模块；**禁止** import `providers/`、`measure/`、`writers/`（读谱层不调模型，`docs/spec-staff.md` §12.5） |
 
 #### 为什么把"读谱小节"独立成层
 
@@ -236,10 +234,8 @@ AIAOMR/
 | R-07 | TAB 线数 ∈ {4,5,6}；不属于该集合的系统**必须**报 `E_TAB_STAFF_MISSING` |
 | R-08 | 短末行（宽度 < 50% 页宽）**必须**按局部宽度单独定位，不得因全页阈值被丢弃 |
 | R-09 | class 5/6：帧对齐**必须**用谱线图案的互相关求位移，禁止用时间戳推 |
-| R-10 | 谱线**必须**按"行 run"交出（起止行号 + 中心 + 厚度），不能只给中心行：读谱层要按整条线厚抹线（`docs/spec-staff.md` SR-11） |
 
-**禁止**：输出任何音高、时值、谱号、调号等语义结论。符号读取（符头、符干、横梁、休止符……）属于
-§2.11 的 `staff` 子系统，不在本层的职责范围内。
+**禁止**：输出任何音高、时值、谱号、调号等语义结论。
 
 ### 2.2 `skeleton` —— 骨架（分级，**不是"六项"**）
 
@@ -428,7 +424,7 @@ AIAOMR/
 
 ### 2.10 `cli` —— 唯一入口
 
-子命令：`ingest`、`locate`、`skeleton`、`staff`、`read`、`verify`、`adjudicate`、`assemble`、`build`、`eval`、`run`。
+子命令：`ingest`、`locate`、`skeleton`、`read`、`verify`、`adjudicate`、`assemble`、`build`、`eval`、`run`。
 
 | 全局参数 | 作用 |
 |---|---|
@@ -442,31 +438,6 @@ AIAOMR/
 `run` 等价于按序执行上述全部。
 
 **禁止**：`cli.py` 里出现任何业务判断（阈值、几何参数、厂商参数）；它只负责解析参数、按序调用各层、把结果转成 §10 的事件流。
-
-### 2.11 `staff` —— 读五线谱（L3）
-
-**职责**：把定位好的页面读数成"每个小节的符号类别与时值"，给出 `MeasureRhythm` 结论和 abstain 理由。
-完整规则见配套规范 **`docs/spec-staff.md`**（编号 SR-xx、AR-xx），本节只定它在系统里的位置和硬边界。
-目录、文件划分与产物归属见该文件 §12；本层是**独立阶段** `staff`（`skeleton` 之后、`read` 之前，不联网），
-产物写 `out/<song>/staff/rhythm.json`，事件为 `staff.measure` / `staff.done`。
-
-**输入**：`arr`、`System`（含谱线行 run）、`MeasureBox`、`deg`、`Skeleton.timeSignatures`
-**输出**：`MeasureRhythm`（§3.2）
-
-| ID | 规则 |
-|---|---|
-| ST-01 | 只读定位层交出的 `System`/`MeasureBox`/`deg`/谱线行；**禁止**在内部重新定位系统或小节 |
-| ST-02 | 输出只有符号类别与时值；**禁止**输出音高、弦号、品位（那是 TAB 与模型的事，F-01） |
-| ST-03 | 三条铁律（`docs/spec-staff.md` §2）：**横向间距禁止推时值与 onset**；**拍格是隐含条件、不是切图依据**；**判不准就 abstain，禁止用和校验反推时值** |
-| ST-04 | 一条判据只做一件事（符头/符干/横梁/符尾/附点/休止各一条），阈值只进 §5 参数表，判据必须能单测 |
-| ST-05 | 模板只能从**本页自举**（medoid，确定性），禁止依赖外部字体文件、禁止随机初始化 |
-| ST-06 | abstain 必须带固定原因编号 AR-01..12，按编号计数写进 `metrics.json`（§8.2） |
-| ST-07 | 本层不读的记谱（连音线、三连音、装饰音、双声部、反复）在检出/疑似检出时**整小节 abstain**，禁止"顺手支持" |
-| ST-08 | 与模型读数的合并发生在装配层；本层**禁止**调用模型，也禁止知道模型存在 |
-| ST-09 | 报警不阻断：几何结论缺失或与模型不一致，只是把该小节变成争议点（A8 候选），流程继续 |
-
-**为什么单独立一层**：时值判对和"判不准时闭嘴"是两件事，混在定位层里会同时破坏 R-03 与 ST-01；
-独立之后 `score/locate/` 保持纯 CV，`staff` 的每条判据都能拿真图样本单测，abstain 率也可以单独量。
 
 ---
 
@@ -566,9 +537,6 @@ AIAOMR/
 | `MeasureRead` | `index`、`beats`、`unreadable` |
 | `MeasureResult` | `callId`、`reads: list[MeasureRead]`、`usage`（可选，原始用量）、`errorCode`（可选，系统级失败时记录） |
 | `Skeleton` | `timeSignatures`、`keySignatures`、`tempos`、`tuning`、`stringCount`、`title`、`artist`、`provenance`、`clefTranspose`（低音谱号固定 −12）、`fretCount`（默认 24） |
-| `RhythmBeat` | `x`（只用于排序与证据）、`kind`（note/rest）、`duration`（whole…32nd，可空=abstain）、`dots`、`noteCount`、`head`（hollow/filled，休止为空）、`beams`（入射横梁条数或符尾条数）、`group`、`confidence`（只用于选争议点，禁止软判决）、`evidence` |
-| `Abstain` | `reason`（AR-01..12）、`measure`、`beat`（可空）、`detail` |
-| `MeasureRhythm` | `index`、`status`（ok/partial/unknown）、`beats: list[RhythmBeat]`、`abstains: list[Abstain]`、`ticks`（仅 ok 有意义）、`deg` |
 | `Judgement` | 见 IR |
 
 ### 3.3 错误码
@@ -749,46 +717,6 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `skeleton.title_from_filename` | true | 曲名读不出时用文件名 stem |
 | `structure.change_min_run` | 3 | A11/A12 聚类检测所需的最小连续小节数 |
 | `run.inflight_grace_ms` | 30000 | 阻断时等待在途请求返回的宽限（用于准确记账） |
-| `staff.band_margin_deg` | 4.0 | 五线谱带上下余量（`spec-staff.md` SR-10/SR-12） |
-| `staff.measure_margin_deg` | 0.5 | 小节窗口左右外扩（SR-14）；只作上下文，符号归属仍按中心落在小节框内判 |
-| `staff.line_erase_pad_px` | 1 | 抹谱线时按整条线厚再加的抗锯齿余量（SR-11） |
-| `staff.head_w_deg` | 0.7–1.9 | 符头宽度范围 |
-| `staff.head_h_deg` | 0.3–1.2 | 符头高度范围 |
-| `staff.head_fill_hollow_max` | 0.55 | 填充率低于此为空心（真图标定前为初值） |
-| `staff.head_fill_filled_min` | 0.75 | 填充率高于此为实心；中间 abstain |
-| `staff.template_ncc_min` | 0.75 | 模板匹配采纳下限 |
-| `staff.stem_len_deg` | 2.0–5.5 | 符干长度范围 |
-| `staff.beam_coverage` | 0.85 | 横梁段覆盖率下限 |
-| `staff.beam_thickness_deg` | 0.3–0.9 | 横梁段厚度范围 |
-| `staff.layer_gap_deg` | 0.8 | 横梁分层 y 差阈值 |
-| `staff.beam_gap_deg` | [0.5, 4.5] | 相邻符干的水平间距区间（deg）；超出即不算同一条横梁 |
-| `staff.beam_attach_tol_deg` | 0.6 | 横梁段端点"接到符干"的容差（deg，SR-41） |
-| `staff.beam_row_gap_deg` | 0.35 | 同一层内的行分组间隔（deg），也用于把相邻符干对之间的段合并成同一条横梁线 |
-| `staff.dot_min_area_px` | 3 | 附点的绝对面积下限（平方像素；抗噪） |
-| `staff.dot_max_area_deg2` | 0.45 | 附点面积上限 = 该值 × deg²（挡掉整行墨迹） |
-| `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |
-| `staff.head_erode_deg` | 0.33 | 实心符头候选：腐蚀半径（deg）；谱线/符干/横梁被腐蚀掉，实心符头留核 |
-| `staff.head_ring_max_deg` | 0.55 | 空心符头的环壁最大厚度；超过说明这个空腔是横梁与谱线之间的缝，不是符头内部 |
-| `staff.head_cavity_min_h_deg` | 0.2 | 符头内空腔的最小高度（deg），更小的当噪点 |
-| `staff.head_cavity_aspect_max` | 3.0 | 符头内空腔的宽高比上限 |
-| `staff.dot_offset_deg` | [0.6, 1.6] | 附点相对符头中心的横向偏移区间（deg） |
-| `staff.dot_dy_deg` | 0.6 | 附点的纵向容差（±该值，deg） |
-| `staff.rest_rect_w_deg` | [1.1, 2.0] | 全/二分休止矩形的宽度区间；下限由真图实测从 1.2 调到 1.1（打上花火 m51 实宽 1.18、NIGHT DANCER m7/23/61 为 1.15） |
-| `staff.rest_rect_h_deg` | [0.15, 0.65] | 全/二分休止矩形的高度区间 |
-| `staff.rest_glyph_h_deg` | [1.0, 3.6] | 四分/八分休止字形的高度区间 |
-| `staff.flag_min_ink_deg2` | 0.12 | 符尾区域墨迹下限（deg²），低于此不判符尾 |
-| `staff.flag_row_mean` | 0.15 | 符尾行分组用的行均值下限 |
-| `staff.flag_row_gap_deg` | 0.3 | 符尾行之间的分组间隔（deg），超过即算另一条符尾 |
-| `staff.head_aspect_min` | 1.1 | 符头候选的宽高比下限 |
-| `staff.dot_second_gap_deg` | 0.9 | 双附点中第二个点再往右的间距（deg） |
-| `staff.dot_max_side_deg` | 0.5 | 附点墨点外接框的最大边长（deg） |
-| `staff.rest_bar_coverage` | 0.8 | 多小节休止条的横向覆盖率下限 |
-| `staff.rest_rect_fill_min` | 0.85 | 全/二分休止矩形的填充率下限 |
-| `staff.rest_line_snap_deg` | 0.3 | 休止矩形"贴住谱线"的容差（deg） |
-| `staff.rest_quarter_aspect` | 2.0 | 四分休止字形的高宽比下限（折线又高又窄） |
-| `staff.rest_hook_protrude_deg` | 0.25 | 钩状休止的钩凸出量（deg），小于此不算钩 |
-| `staff.template_norm_w` | 24 | 模板与候选归一化的宽度（像素） |
-| `staff.template_norm_h` | 16 | 模板与候选归一化的高度（像素） |
 
 **`configs/providers/deepseek-flash.toml`**：`model`、`max_concurrency`、`retry_empty`、`retry_http`、`thinking`（开/关，当前默认关）、`max_tokens_rule`、`temperature`。
 
@@ -835,10 +763,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 8. 禁止在 `writers/gp5/` 之外翻转 `string`。
 9. 禁止在未跑 `--selftest` 的评测器上引用任何分数。
 10. 禁止为了过验收门而调整阈值（改阈值必须单独提交并写明理由）。
-11. 禁止用横向间距、横向位置或像素比例推断时值或 onset：刻谱间距只反映排版美观，与音乐时长无关（`spec-staff.md` SR-01）。横坐标只允许用于"谁在谁左边"和"谁和谁相连"。
-12. 禁止按拍格切图或按拍位裁剪窗口：拍号与拍格只作为装配时的隐含条件，用来否决结论（SR-02）。
-13. 禁止用"小节时值之和"反推某个音符的时值：和校验只能否决，不能生成（SR-03）。
-14. 真值 JSON 必须由 `tools/dump.mjs` 现导，并在加载时校验每小节时值之和等于拍号；不通过即 `EvalError`（§9.2）。
+11. 真值 JSON 必须由 `tools/dump.mjs` 现导，并在加载时校验每小节时值之和等于拍号；不通过即 `EvalError`（§9.2）。
 
 ---
 
@@ -946,7 +871,6 @@ out/<song>/
 ├── input.json          # 输入登记（路径、sha256、class）
 ├── pageset.json        # 定位层结果
 ├── skeleton.json
-├── staff/rhythm.json   # 读五线谱结果（每小节 MeasureRhythm + summary）
 ├── crops/              # 实际送出的裁片（证据留存；retain.crops=false 时可关）
 ├── calls/              # <callId>.req.json / <callId>.resp.json
 ├── measures/<n>.json   # 每小节读取结果（含 call 引用）
@@ -978,7 +902,7 @@ out/<song>/
 
 | 字段 | 说明 |
 |---|---|
-| `stage` | `locate / skeleton / staff / read / fuse / adjudicate / assemble / build` |
+| `stage` | `locate / skeleton / read / fuse / adjudicate / assemble / build` |
 | `durationMs` / `p95Ms` | 阶段耗时（按系统统计，取 p95） |
 | `calls` / `retries` / `emptyReturns` | 调用数、重试数、空返回数 |
 | `inputTokens` / `outputTokens` / `cachedTokens` | 来自 `usage` |
@@ -1010,7 +934,6 @@ out/<song>/
 - 阈值在 `configs/thresholds.toml` 先声明
 - `--selftest` 通过后才允许计分
 - 按输入档分档报分，**禁止**用"支持图片"一句话覆盖
-- 五线谱读的分组交叉表门（`二分 → 四分` 必须为零）与 abstain 原因分布见 `docs/spec-staff.md` §13
 - **真值必须现导并校验**：`tools/dump.mjs` 导出的 JSON 要带每小节拍号；`load_truth` 校验每小节时值之和等于拍号，不通过即 `EvalError`。旧产物 `out/p1/*/truth.json` 已确认不可信（每小节多出三个四分休止），不复用
 
 ### 9.3 语料
@@ -1066,7 +989,7 @@ out/<song>/
 |---|---|
 | `v` | 事件 schema 版本；破坏性变更必须升 |
 | `seq` | 从 1 单调递增，用于丢行检测与排序 |
-| `stage` | ∈ `ingest / locate / skeleton / staff / read / verify / adjudicate / assemble / build / audit / eval / run` |
+| `stage` | ∈ `ingest / locate / skeleton / read / verify / adjudicate / assemble / build / audit / eval / run` |
 | `level` | ∈ `debug / info / warn / error` |
 | `event` | 点分命名 `域.动作`；**GUI 遇到未知事件名必须忽略，不得崩溃** |
 | `data` | 事件专属字段；遵循"小、平、可增量渲染" |
@@ -1101,13 +1024,6 @@ out/<song>/
 | event | 何时 | `data` |
 |---|---|---|
 | `skeleton.done` | 一次调用后 | `title`、`artist`、`tempo`、`tuning[]`、`stringCount`、`timeSignature`、`measureCount`、`defaulted[]` |
-
-**staff 级（读五线谱，不联网）**
-
-| event | 何时 | `data` |
-|---|---|---|
-| `staff.measure` | 每小节读完 | `index`、`status`（ok/partial/unknown）、`beats`（`duration`/`dots`/`rest`/`heads` 摘要）、`abstains[]`（AR 编号 + 拍号） |
-| `staff.done` | 阶段结束 | `measures`、`ok`、`partial`、`unknown`、`abstainByReason{AR-xx}`、`durationMs` |
 
 **read 级（每次模型调用都有）**
 
