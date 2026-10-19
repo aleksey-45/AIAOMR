@@ -1,0 +1,510 @@
+{
+  "version": 2,
+  "source": "E:/Bass Guitar/AIAOMR/<song>/<page>（打上花火=视频截图；NIGHT DANCER=GP 导出图）",
+  "marginFactor": 2.0,
+  "songs": {
+    "打上花火": {
+      "deg": 17.0,
+      "pages": {
+        "1.png": [
+          2560,
+          1600
+        ],
+        "2.png": [
+          2560,
+          1600
+        ],
+        "3.png": [
+          2560,
+          1600
+        ]
+      }
+    },
+    "NIGHT DANCER": {
+      "deg": 35.5,
+      "pages": {
+        "NIGHT DANCER#2.png": [
+          4960,
+          7015
+        ],
+        "NIGHT DANCER#1.png": [
+          4960,
+          7015
+        ]
+      }
+    }
+  },
+  "classes": [
+    "beamed_1",
+    "beamed_2",
+    "dot_on_note",
+    "dot_on_rest",
+    "filled_stem",
+    "hollow_no_stem",
+    "hollow_stem",
+    "rest_eighth",
+    "rest_half",
+    "rest_quarter",
+    "rest_whole"
+  ],
+  "missingClasses": [
+    {
+      "class": "beamed_3",
+      "reason": "四首歌的真值里都没有三十二分音符，连梁最多两条"
+    },
+    {
+      "class": "staccato_dot",
+      "reason": "四首歌的真值里都没有断音记号（staccato effect 全为假）"
+    }
+  ],
+  "samples": [
+    {
+      "file": "hollow_stem_1_m017_a.png",
+      "class": "hollow_stem",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 17,
+      "measureIndex": 17,
+      "bbox": [
+        553,
+        180,
+        645,
+        317
+      ],
+      "deg": 17.0,
+      "note": "二分音符：空心符头 + 符干向上，带起始延音线（m17 第一拍）"
+    },
+    {
+      "file": "hollow_stem_1_m018_a.png",
+      "class": "hollow_stem",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 18,
+      "measureIndex": 18,
+      "bbox": [
+        853,
+        213,
+        943,
+        350
+      ],
+      "deg": 17.0,
+      "note": "二分音符：空心符头 + 符干向下（m18 第一拍）"
+    },
+    {
+      "file": "hollow_stem_2_m052_a.png",
+      "class": "hollow_stem",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 52,
+      "measureIndex": 52,
+      "bbox": [
+        266,
+        443,
+        356,
+        580
+      ],
+      "deg": 17.0,
+      "note": "二分音符：空心符头 + 符干向上（m52 第一拍）"
+    },
+    {
+      "file": "filled_stem_1_m032_a.png",
+      "class": "filled_stem",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 32,
+      "measureIndex": 32,
+      "bbox": [
+        1826,
+        947,
+        1918,
+        1085
+      ],
+      "deg": 17.0,
+      "note": "四分音符：实心符头 + 符干，无附点无符尾（m32 第一拍）"
+    },
+    {
+      "file": "filled_stem_2_m053_a.png",
+      "class": "filled_stem",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 53,
+      "measureIndex": 53,
+      "bbox": [
+        564,
+        443,
+        655,
+        580
+      ],
+      "deg": 17.0,
+      "note": "四分音符：实心符头 + 符干向上（m53 第一拍）"
+    },
+    {
+      "file": "filled_stem_2_m053_b.png",
+      "class": "filled_stem",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 53,
+      "measureIndex": 53,
+      "bbox": [
+        634,
+        435,
+        724,
+        570
+      ],
+      "deg": 17.0,
+      "note": "四分音符：实心符头 + 符干向上（m53 第二拍）"
+    },
+    {
+      "file": "beamed_1_2_m057_a.png",
+      "class": "beamed_1",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 57,
+      "measureIndex": 57,
+      "bbox": [
+        2307,
+        455,
+        2457,
+        587
+      ],
+      "deg": 17.0,
+      "note": "连梁组（一条梁）：两个八分音符，符干向上，梁在顶上（m57 第四拍）"
+    },
+    {
+      "file": "beamed_1_3_m071_a.png",
+      "class": "beamed_1",
+      "song": "打上花火",
+      "page": "3.png",
+      "measure": 71,
+      "measureIndex": 71,
+      "bbox": [
+        2054,
+        97,
+        2199,
+        236
+      ],
+      "deg": 17.0,
+      "note": "连梁组（一条梁）：两个八分音符（m71 第一拍）"
+    },
+    {
+      "file": "beamed_1_2_m056_a.png",
+      "class": "beamed_1",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 56,
+      "measureIndex": 56,
+      "bbox": [
+        1713,
+        432,
+        1862,
+        581
+      ],
+      "deg": 17.0,
+      "note": "连梁组（一条梁）：两个八分音符，梁是斜的（m56 第三拍）"
+    },
+    {
+      "file": "beamed_2_2_m057_a.png",
+      "class": "beamed_2",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 57,
+      "measureIndex": 57,
+      "bbox": [
+        2078,
+        429,
+        2240,
+        564
+      ],
+      "deg": 17.0,
+      "note": "连梁组（两条梁）：附点八分 + 十六分，十六分符干上有第二条短梁（m57 第二拍）"
+    },
+    {
+      "file": "beamed_2_2_m059_a.png",
+      "class": "beamed_2",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 59,
+      "measureIndex": 59,
+      "bbox": [
+        1201,
+        824,
+        1340,
+        961
+      ],
+      "deg": 17.0,
+      "note": "连梁组（两条梁）：十六分 + 附点八分，十六分符干上有第二条梁（m59 第三拍）"
+    },
+    {
+      "file": "beamed_2_2_m056_a.png",
+      "class": "beamed_2",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 56,
+      "measureIndex": 56,
+      "bbox": [
+        1600,
+        442,
+        1763,
+        581
+      ],
+      "deg": 17.0,
+      "note": "连梁组（两条梁）：附点八分 + 十六分（m56 第二拍）"
+    },
+    {
+      "file": "rest_whole_2_m051_a.png",
+      "class": "rest_whole",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 51,
+      "measureIndex": 51,
+      "bbox": [
+        2316,
+        109,
+        2406,
+        185
+      ],
+      "deg": 17.0,
+      "note": "全休止：挂在第四线下面的一块实心矩形；m51 是普通单小节（不是多小节休止条）"
+    },
+    {
+      "file": "rest_quarter_1_m032_a.png",
+      "class": "rest_quarter",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 32,
+      "measureIndex": 32,
+      "bbox": [
+        2067,
+        964,
+        2155,
+        1085
+      ],
+      "deg": 17.0,
+      "note": "四分休止：折线形符号（m32 第四拍）"
+    },
+    {
+      "file": "rest_quarter_2_m055_a.png",
+      "class": "rest_quarter",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 55,
+      "measureIndex": 55,
+      "bbox": [
+        1393,
+        459,
+        1482,
+        581
+      ],
+      "deg": 17.0,
+      "note": "四分休止：折线形符号（m55 第四拍）"
+    },
+    {
+      "file": "rest_eighth_1_m031_a.png",
+      "class": "rest_eighth",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 31,
+      "measureIndex": 31,
+      "bbox": [
+        1509,
+        977,
+        1596,
+        1074
+      ],
+      "deg": 17.0,
+      "note": "八分休止：像数字 7 的钩形（m31 第三拍）"
+    },
+    {
+      "file": "rest_eighth_3_m070_a.png",
+      "class": "rest_eighth",
+      "song": "打上花火",
+      "page": "3.png",
+      "measure": 70,
+      "measureIndex": 70,
+      "bbox": [
+        1785,
+        111,
+        1872,
+        208
+      ],
+      "deg": 17.0,
+      "note": "八分休止：钩形（m70 末拍）"
+    },
+    {
+      "file": "rest_eighth_3_m069_a.png",
+      "class": "rest_eighth",
+      "song": "打上花火",
+      "page": "3.png",
+      "measure": 69,
+      "measureIndex": 69,
+      "bbox": [
+        1430,
+        111,
+        1517,
+        208
+      ],
+      "deg": 17.0,
+      "note": "八分休止：钩形（m69 末拍）"
+    },
+    {
+      "file": "dot_on_note_1_m017_a.png",
+      "class": "dot_on_note",
+      "song": "打上花火",
+      "page": "1.png",
+      "measure": 17,
+      "measureIndex": 17,
+      "bbox": [
+        711,
+        171,
+        812,
+        307
+      ],
+      "deg": 17.0,
+      "note": "音符附点：实心符头右侧的圆点（m17 附点四分音符）"
+    },
+    {
+      "file": "dot_on_note_2_m052_a.png",
+      "class": "dot_on_note",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 52,
+      "measureIndex": 52,
+      "bbox": [
+        421,
+        443,
+        522,
+        581
+      ],
+      "deg": 17.0,
+      "note": "音符附点：实心符头右侧的圆点（m52 附点四分音符）"
+    },
+    {
+      "file": "dot_on_note_2_m054_a.png",
+      "class": "dot_on_note",
+      "song": "打上花火",
+      "page": "2.png",
+      "measure": 54,
+      "measureIndex": 54,
+      "bbox": [
+        1050,
+        435,
+        1151,
+        570
+      ],
+      "deg": 17.0,
+      "note": "音符附点：实心符头右侧的圆点（m54 附点四分音符）"
+    },
+    {
+      "file": "hollow_no_stem_nd2_m055_a.png",
+      "class": "hollow_no_stem",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#2.png",
+      "measure": 55,
+      "measureIndex": 55,
+      "bbox": [
+        477,
+        4081,
+        681,
+        4257
+      ],
+      "deg": 35.5,
+      "note": "全音符：空心符头、没有符干，整小节就这一个音（m55；2×deg 余量内会带一点上方印刷小节号）"
+    },
+    {
+      "file": "rest_half_nd1_m007_a.png",
+      "class": "rest_half",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#1.png",
+      "measure": 7,
+      "measureIndex": 7,
+      "bbox": [
+        3363,
+        1082,
+        3548,
+        1244
+      ],
+      "deg": 35.5,
+      "note": "二分休止：实心矩形下沿坐在中间线上，后面接八分休止（m7 前两拍休止）"
+    },
+    {
+      "file": "rest_half_nd1_m023_a.png",
+      "class": "rest_half",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#1.png",
+      "measure": 23,
+      "measureIndex": 23,
+      "bbox": [
+        3313,
+        3344,
+        3497,
+        3506
+      ],
+      "deg": 35.5,
+      "note": "二分休止：实心矩形坐在中间线上（m23 前两拍休止，后接两个四分音符）"
+    },
+    {
+      "file": "rest_half_nd2_m061_a.png",
+      "class": "rest_half",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#2.png",
+      "measure": 61,
+      "measureIndex": 61,
+      "bbox": [
+        1008,
+        5564,
+        1192,
+        5726
+      ],
+      "deg": 35.5,
+      "note": "二分休止：实心矩形坐在中间线上（m61 第二拍，前接一个二分音符）"
+    },
+    {
+      "file": "dot_on_rest_nd2_m062_a.png",
+      "class": "dot_on_rest",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#2.png",
+      "measure": 62,
+      "measureIndex": 62,
+      "bbox": [
+        2543,
+        5531,
+        2749,
+        5781
+      ],
+      "deg": 35.5,
+      "note": "附点四分休止：四分休止折线 + 右上方的圆点（m62 第四拍）"
+    },
+    {
+      "file": "dot_on_rest_nd1_m024_a.png",
+      "class": "dot_on_rest",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#1.png",
+      "measure": 24,
+      "measureIndex": 24,
+      "bbox": [
+        1264,
+        4015,
+        1469,
+        4265
+      ],
+      "deg": 35.5,
+      "note": "附点四分休止：四分休止折线 + 右上方的圆点（m24 第四拍）"
+    },
+    {
+      "file": "dot_on_rest_nd1_m022_a.png",
+      "class": "dot_on_rest",
+      "song": "NIGHT DANCER",
+      "page": "NIGHT DANCER#1.png",
+      "measure": 22,
+      "measureIndex": 22,
+      "bbox": [
+        2459,
+        3311,
+        2664,
+        3561
+      ],
+      "deg": 35.5,
+      "note": "附点四分休止：四分休止折线 + 右上方的圆点（m22 第四拍）"
+    }
+  ]
+}
