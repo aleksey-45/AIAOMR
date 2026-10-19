@@ -1,19 +1,17 @@
 """横梁段与符尾（`docs/spec-staff.md` SR-28..32）。
 
 任务 0 仍按"相邻符干之间数行数"的老口径实现，左右延伸建图与入射段计数是任务 3 的事：
-那部分是归属问题（`group.py`），不是判据问题。阈值一律以 deg 为单位（R-03）。
+那部分是归属问题（`group.py`），不是判据问题。阈值一律以 deg 为单位（R-03），从
+`cfg.staff.beam_coverage` / `cfg.staff.flag_*` 读。
 """
 
 from __future__ import annotations
 
 import numpy as np
 
+from ...kernel.config import StaffConfig, load_staff_config
 from .base import Criterion, Finding
 from .context import GeoContext
-
-BEAM_COVERAGE = 0.85
-FLAG_MIN_INK = 0.12
-FLAG_ROW_MEAN = 0.15
 
 
 class BeamCriterion(Criterion):
@@ -24,6 +22,9 @@ class BeamCriterion(Criterion):
     """
 
     name = "beam"
+
+    def __init__(self, staff: StaffConfig | None = None) -> None:
+        self.staff = staff if staff is not None else load_staff_config()
 
     def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
         stems = (findings or {}).get("stem", [])
@@ -52,7 +53,7 @@ class BeamCriterion(Criterion):
         top = max(0, int(min(left.bbox[1], right.bbox[1]) - 0.6 * ctx.deg))
         bottom = min(ctx.height, int(max(left.bbox[1], right.bbox[1]) + 1.2 * ctx.deg))
         coverage = ctx.beam_dark[top:bottom, x0:x1].mean(axis=1)
-        rows = np.flatnonzero(coverage > BEAM_COVERAGE)
+        rows = np.flatnonzero(coverage > self.staff.beam_coverage)
         if len(rows) == 0:
             return 0
         groups = [[int(rows[0])]]
@@ -69,8 +70,13 @@ class FlagCriterion(Criterion):
 
     name = "flag"
 
+    def __init__(self, staff: StaffConfig | None = None) -> None:
+        self.staff = staff if staff is not None else load_staff_config()
+
     def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
         stems = (findings or {}).get("stem", [])
+        min_ink = self.staff.flag_min_ink_deg2 * ctx.deg * ctx.deg
+        row_gap = max(1, int(ctx.deg * self.staff.flag_row_gap_deg))
         out: list[Finding] = []
         for stem in stems:
             x = int(stem.value) + 1
@@ -80,12 +86,12 @@ class FlagCriterion(Criterion):
             if right <= x or bottom <= top:
                 continue
             region = ctx.beam_dark[max(0, top) : bottom, x:right]
-            if region.sum() < FLAG_MIN_INK * ctx.deg * ctx.deg:
+            if region.sum() < min_ink:
                 continue
-            rows = np.flatnonzero(region.mean(axis=1) > FLAG_ROW_MEAN)
+            rows = np.flatnonzero(region.mean(axis=1) > self.staff.flag_row_mean)
             groups = 1
             for previous, row in zip(rows, rows[1:]):
-                if int(row) - int(previous) > max(1, int(ctx.deg * 0.3)):
+                if int(row) - int(previous) > row_gap:
                     groups += 1
             out.append(
                 Finding(

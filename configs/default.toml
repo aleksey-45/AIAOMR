@@ -73,6 +73,7 @@ inflight_grace_ms = 30000
 # 读五线谱层的阈值（docs/spec-staff.md §11）。长度、间距一类量的单位都是 deg
 # （压缩后的有效谱线间距）；只有抹线余量是像素、附点面积下限是平方像素。
 # 这些只是真图标定前的初值，改动必须写清"改了哪个值、哪张样本、前后各错几拍"。
+# 判据代码里只许查这张表，不许再写模块级阈值常量（纯查表映射不算阈值）。
 #
 # 五线谱带上下余量（SR-10/SR-12）。
 band_margin_deg = 4.0
@@ -82,6 +83,8 @@ line_erase_pad_px = 1
 head_w_deg = [0.7, 1.9]
 # 符头高度范围，deg（SR-20）。
 head_h_deg = [0.3, 1.2]
+# 符头外接框的宽高比下限（SR-20）。
+head_aspect_min = 1.1
 # 填充率低于此为空心；高于下面那一项为实心；落在中间 abstain（AR-02，SR-21）。
 head_fill_hollow_max = 0.55
 head_fill_filled_min = 0.75
@@ -94,6 +97,9 @@ head_cavity_min_h_deg = 0.2
 head_cavity_aspect_max = 3.0
 # 模板匹配（TM_CCOEFF_NORMED）采纳下限（SR-22）。
 template_ncc_min = 0.75
+# 模板归一化后的画布尺寸，像素（SR-22：候选按 bbox 归一化后再比形状）。
+template_norm_w = 24
+template_norm_h = 16
 # 符干长度范围，deg（SR-25）。
 stem_len_deg = [2.0, 5.5]
 # 横梁段覆盖率下限（SR-28）。
@@ -102,6 +108,10 @@ beam_coverage = 0.85
 beam_thickness_deg = [0.3, 0.9]
 # 横梁分层 y 差阈值，deg（SR-29）。
 layer_gap_deg = 0.8
+# 符尾区域：墨迹面积下限，deg²；行均值下限；行分组间隔，deg（SR-31）。
+flag_min_ink_deg2 = 0.12
+flag_row_mean = 0.15
+flag_row_gap_deg = 0.3
 # 附点面积下限，平方像素（规格 §5 写 "3–0.45·deg²" 的左端，SR-34）。
 dot_min_area_px = 3.0
 # 附点面积上限的 deg² 倍数，运行时上限 = dot_max_area_deg2 × deg²（SR-34）。
@@ -109,12 +119,23 @@ dot_max_area_deg2 = 0.45
 # 附点锚点：离符头中心的横向距离区间，deg；纵向容差，deg（SR-33）。
 dot_offset_deg = [0.6, 1.6]
 dot_dy_deg = 0.6
+# 双附点：第二个点相对第一个点的额外位移，deg；附点自身外接框上限，deg（SR-34）。
+dot_second_gap_deg = 0.9
+dot_max_side_deg = 0.5
+# 多小节休止条：横向覆盖率下限（SR-39b）。
+rest_bar_coverage = 0.8
 # 全休止/二分休止的实心矩形宽度，deg；两种只靠挂线位置区分（SR-37）。
 # 真图实测：视频截图里矩形实宽 1.15~1.29·deg，比规格初值 1.2 略窄，下限放到 1.1。
 rest_rect_w_deg = [1.1, 2.0]
 # 同一个实心矩形的高度范围，deg（比横梁薄、比附点厚）。
 rest_rect_h_deg = [0.15, 0.65]
+# 全/二分休止矩形的填充率下限；矩形贴到谱线的容差，deg（SR-37）。
+rest_rect_fill_min = 0.85
+rest_line_snap_deg = 0.3
 # 四分/八分/十六分/三十二分休止字形的高度范围，deg（SR-38/SR-39）。
 rest_glyph_h_deg = [1.0, 3.6]
+# 四分休止字形的高宽比下限；钩状休止的钩凸出量（相对字形宽）（SR-38/SR-39）。
+rest_quarter_aspect = 2.0
+rest_hook_protrude_deg = 0.25
 # 符头与符干配对的最大距离，deg（SR-40）。
 pair_max_deg = 1.2

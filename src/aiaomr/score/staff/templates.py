@@ -4,7 +4,8 @@
 - **自举**：模板只能从本页/本窗口已经判过类的候选里取，不落盘、不依赖外部字体文件；
 - **确定性**：同一批候选、同一顺序，模板必须一样（medoid = 与同类其它候选平均 NCC 最高的那个）。
 
-本模块只做"归一化 + 取 medoid + 打分"，不碰几何阈值；阈值由调用方从 `cfg.staff.template_ncc_min` 传入。
+本模块只做"归一化 + 取 medoid + 打分"，不碰几何阈值：归一化画布尺寸取
+`cfg.staff.template_norm_w/h`，采纳下限由调用方从 `cfg.staff.template_ncc_min` 传入。
 """
 
 from __future__ import annotations
@@ -12,19 +13,31 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-# 归一化后的模板尺寸（像素）。这是形状比较的画布大小，不是判据阈值。
-NORM_W = 24
-NORM_H = 16
+from ...kernel.config import load_staff_config
 
 
-def normalize(ink: np.ndarray) -> np.ndarray:
-    """把一个候选的墨迹裁到外接框，缩放到固定画布，返回 0/255 的二值图。"""
+def _norm_size(width: int | None, height: int | None) -> tuple[int, int]:
+    if width is not None and height is not None:
+        return width, height
+    staff = load_staff_config()
+    return (
+        staff.template_norm_w if width is None else width,
+        staff.template_norm_h if height is None else height,
+    )
+
+
+def normalize(ink: np.ndarray, width: int | None = None, height: int | None = None) -> np.ndarray:
+    """把一个候选的墨迹裁到外接框，缩放到固定画布，返回 0/255 的二值图。
+
+    画布尺寸不给时取 `cfg.staff.template_norm_w/h`。
+    """
+    norm_w, norm_h = _norm_size(width, height)
     mask = ink.astype(bool)
     ys, xs = np.nonzero(mask)
     if ys.size == 0:
-        return np.zeros((NORM_H, NORM_W), np.uint8)
+        return np.zeros((norm_h, norm_w), np.uint8)
     crop = mask[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1].astype(np.uint8) * 255
-    resized = cv2.resize(crop, (NORM_W, NORM_H), interpolation=cv2.INTER_AREA)
+    resized = cv2.resize(crop, (norm_w, norm_h), interpolation=cv2.INTER_AREA)
     return (resized > 127).astype(np.uint8) * 255
 
 
@@ -41,38 +54,48 @@ def _score(canvas: np.ndarray, template: np.ndarray) -> float:
 class HeadTemplates:
     """两类符头模板（空心 / 实心）。只有两类都自举成功时才能用于复核。"""
 
-    def __init__(self, templates: dict[str, np.ndarray]) -> None:
+    def __init__(self, templates: dict[str, np.ndarray], norm_w: int, norm_h: int) -> None:
         self.templates = dict(sorted(templates.items()))
+        self.norm_w = norm_w
+        self.norm_h = norm_h
 
     @property
     def labels(self) -> tuple[str, ...]:
         return tuple(self.templates)
 
     @classmethod
-    def bootstrap(cls, labelled: dict[str, list[np.ndarray]]) -> "HeadTemplates | None":
-        """按类别取 medoid。`labelled` 是 类别 → 归一化后的候选墨迹列表。"""
+    def bootstrap(
+        cls,
+        labelled: dict[str, list[np.ndarray]],
+        norm_w: int | None = None,
+        norm_h: int | None = None,
+    ) -> "HeadTemplates | None":
+        """按类别取 medoid。`labelled` 是 类别 → 候选墨迹列表；先归一化再取 medoid（SR-22）。"""
+        norm_w, norm_h = _norm_size(norm_w, norm_h)
         templates: dict[str, np.ndarray] = {}
         for label, patches in labelled.items():
-            patches = [patch for patch in patches if patch is not None and patch.size]
-            if not patches:
+            normalized = [
+                normalize(patch, norm_w, norm_h) for patch in patches if patch is not None and patch.size
+            ]
+            if not normalized:
                 continue
             best_index = 0
             best_mean = -1.0
-            for index, patch in enumerate(patches):
+            for index, patch in enumerate(normalized):
                 scores = [
-                    _score(patch, other) for other_index, other in enumerate(patches) if other_index != index
+                    _score(patch, other) for other_index, other in enumerate(normalized) if other_index != index
                 ]
                 mean = float(np.mean(scores)) if scores else 1.0
                 if mean > best_mean:
                     best_mean, best_index = mean, index
-            templates[label] = patches[best_index]
+            templates[label] = normalized[best_index]
         if set(templates) != {"hollow", "filled"}:
             return None
-        return cls(templates)
+        return cls(templates, norm_w, norm_h)
 
     def classify(self, ink: np.ndarray, ncc_min: float) -> tuple[str, float] | None:
         """返回 (类别, NCC)；两类分不开或分数低于下限时返回 None（调用方 abstain）。"""
-        patch = normalize(ink)
+        patch = normalize(ink, self.norm_w, self.norm_h)
         if not patch.any():
             return None
         scores = {label: _score(patch, template) for label, template in self.templates.items()}

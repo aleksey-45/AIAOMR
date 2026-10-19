@@ -46,7 +46,9 @@ class HeadCriterion(Criterion):
             {
                 label: [self._patch(ctx, cand["bbox"]) for cand in candidates if cand["label"] == label]
                 for label in ("hollow", "filled")
-            }
+            },
+            self.staff.template_norm_w,
+            self.staff.template_norm_h,
         )
         results: list[Finding] = []
         for cand in candidates:
@@ -184,7 +186,7 @@ class HeadCriterion(Criterion):
         min_h, max_h = self.staff.head_h_deg
         if not (min_w * deg <= width <= max_w * deg and min_h * deg <= height <= max_h * deg):
             return False
-        return width / max(1.0, height) >= 1.1
+        return width / max(1.0, height) >= self.staff.head_aspect_min
 
     def _patch(self, ctx: GeoContext, bbox) -> np.ndarray:
         x0, y0, x1, y1 = (int(round(value)) for value in bbox)

@@ -46,10 +46,13 @@ def read_measure(
     measure_box: MeasureBox,
     deg: float,
     expected_ticks: int | None = None,
-    margin_deg: float = 4.0,
+    margin_deg: float | None = None,
     line_runs: list[tuple[int, int]] | None = None,
 ) -> MeasureRhythm:
-    """读一个小节。`expected_ticks` 是该小节生效拍号的 tick 数，来自骨架层。"""
+    """读一个小节。`expected_ticks` 是该小节生效拍号的 tick 数，来自骨架层。
+
+    `margin_deg` 不给时取 `cfg.staff.band_margin_deg`（窗口余量同样只许从参数表来）。
+    """
     index = measure_box.index
     ctx = measure_context(
         arr, system, measure_box, deg,

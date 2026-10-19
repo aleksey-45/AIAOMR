@@ -1,16 +1,14 @@
 """符干预判据（`docs/spec-staff.md` SR-25..27）。
 
-符干是竖直墨迹，长度 2.0–5.5 倍 deg，穿过谱线时中间是连续的；长度超上限通常是
-相邻谱线的竖线或小节线误检，丢弃。
+符干是竖直墨迹，长度 `cfg.staff.stem_len_deg`（2.0–5.5 倍 deg），穿过谱线时中间是连续的；
+长度超上限通常是相邻谱线的竖线或小节线误检，丢弃。
 """
 
 from __future__ import annotations
 
+from ...kernel.config import StaffConfig, load_staff_config
 from .base import Criterion, Finding
 from .context import GeoContext
-
-STEM_MIN_DEG = 2.0
-STEM_MAX_DEG = 5.5
 
 
 class StemCriterion(Criterion):
@@ -18,7 +16,11 @@ class StemCriterion(Criterion):
 
     name = "stem"
 
+    def __init__(self, staff: StaffConfig | None = None) -> None:
+        self.staff = staff if staff is not None else load_staff_config()
+
     def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
+        min_len, max_len = (bound * ctx.deg for bound in self.staff.stem_len_deg)
         dark, deg, width = ctx.dark, ctx.deg, ctx.width
         if dark.size == 0:
             return []
@@ -46,7 +48,7 @@ class StemCriterion(Criterion):
             if best is None:
                 continue
             top, bottom = best
-            if STEM_MIN_DEG * deg <= bottom - top <= STEM_MAX_DEG * deg:
+            if min_len <= bottom - top <= max_len:
                 candidates.append((float(x), top, bottom))
 
         stems: list[tuple[float, int, int]] = []
@@ -61,7 +63,7 @@ class StemCriterion(Criterion):
         kept = [
             stem for stem in stems
             if not (stem[0] < margin or stem[0] > width - margin)
-            and (stem[2] - stem[1]) < STEM_MAX_DEG * deg * 0.95
+            and (stem[2] - stem[1]) < max_len * 0.95
         ]
         return [
             Finding(kind=self.name, value=float(x), bbox=(x, float(top), x, float(bottom)))

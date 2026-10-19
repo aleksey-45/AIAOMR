@@ -772,6 +772,19 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `staff.rest_rect_w_deg` | [1.1, 2.0] | 全/二分休止矩形的宽度区间；下限由真图实测从 1.2 调到 1.1（打上花火 m51 实宽 1.18、NIGHT DANCER m7/23/61 为 1.15） |
 | `staff.rest_rect_h_deg` | [0.15, 0.65] | 全/二分休止矩形的高度区间 |
 | `staff.rest_glyph_h_deg` | [1.0, 3.6] | 四分/八分休止字形的高度区间 |
+| `staff.flag_min_ink_deg2` | 0.12 | 符尾区域墨迹下限（deg²），低于此不判符尾 |
+| `staff.flag_row_mean` | 0.15 | 符尾行分组用的行均值下限 |
+| `staff.flag_row_gap_deg` | 0.3 | 符尾行之间的分组间隔（deg），超过即算另一条符尾 |
+| `staff.head_aspect_min` | 1.1 | 符头候选的宽高比下限 |
+| `staff.dot_second_gap_deg` | 0.9 | 双附点中第二个点再往右的间距（deg） |
+| `staff.dot_max_side_deg` | 0.5 | 附点墨点外接框的最大边长（deg） |
+| `staff.rest_bar_coverage` | 0.8 | 多小节休止条的横向覆盖率下限 |
+| `staff.rest_rect_fill_min` | 0.85 | 全/二分休止矩形的填充率下限 |
+| `staff.rest_line_snap_deg` | 0.3 | 休止矩形"贴住谱线"的容差（deg） |
+| `staff.rest_quarter_aspect` | 2.0 | 四分休止字形的高宽比下限（折线又高又窄） |
+| `staff.rest_hook_protrude_deg` | 0.25 | 钩状休止的钩凸出量（deg），小于此不算钩 |
+| `staff.template_norm_w` | 24 | 模板与候选归一化的宽度（像素） |
+| `staff.template_norm_h` | 16 | 模板与候选归一化的高度（像素） |
 
 **`configs/providers/deepseek-flash.toml`**：`model`、`max_concurrency`、`retry_empty`、`retry_http`、`thinking`（开/关，当前默认关）、`max_tokens_rule`、`temperature`。
 

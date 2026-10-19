@@ -15,12 +15,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ...kernel.config import load_staff_config
 from ...kernel.contracts import MeasureBox, System
 from ..locate.systems import adaptive_cut, staff_line_runs
-
-# 初值；任务 2 改成从 configs/default.toml 的 staff.* 读（spec-v3 §5）。
-BAND_MARGIN_DEG = 4.0
-LINE_ERASE_PAD_PX = 1
 
 
 @dataclass
@@ -58,8 +55,13 @@ def _empty(left: int, top: int, width: int, height: int, deg: float) -> GeoConte
     )
 
 
-def staff_band(system: System, deg: float, margin_deg: float = BAND_MARGIN_DEG) -> tuple[int, int]:
-    """五线谱带的纵向范围（SR-10）：上留余量给符干和横梁，下界不越过 TAB 带。"""
+def staff_band(system: System, deg: float, margin_deg: float | None = None) -> tuple[int, int]:
+    """五线谱带的纵向范围（SR-10）：上留余量给符干和横梁，下界不越过 TAB 带。
+
+    `margin_deg` 不给时取 `cfg.staff.band_margin_deg`（spec-v3 §5）。
+    """
+    if margin_deg is None:
+        margin_deg = load_staff_config().band_margin_deg
     top = int(system.y0 - margin_deg * deg)
     bottom = int(system.y1 + margin_deg * deg)
     if system.tabY0 > system.y1:
@@ -72,14 +74,20 @@ def measure_context(
     system: System,
     measure_box: MeasureBox,
     deg: float,
-    margin_deg: float = BAND_MARGIN_DEG,
-    erase_pad_px: int = LINE_ERASE_PAD_PX,
+    margin_deg: float | None = None,
+    erase_pad_px: int | None = None,
     line_runs: list[tuple[int, int]] | None = None,
 ) -> GeoContext:
     """建一个小节窗口的几何上下文。
 
     `line_runs` 是定位层交出的谱线行 run（R-10，页面坐标）；不给就从本窗口附近自己算。
+    `margin_deg` / `erase_pad_px` 不给时取 `cfg.staff.band_margin_deg` / `cfg.staff.line_erase_pad_px`。
     """
+    staff = load_staff_config()
+    if margin_deg is None:
+        margin_deg = staff.band_margin_deg
+    if erase_pad_px is None:
+        erase_pad_px = staff.line_erase_pad_px
     top, bottom = staff_band(system, deg, margin_deg)
     top = max(0, top)
     bottom = min(arr.shape[0], bottom)

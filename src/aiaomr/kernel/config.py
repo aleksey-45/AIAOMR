@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -154,6 +155,7 @@ class StaffConfig:
     line_erase_pad_px: int
     head_w_deg: tuple[float, float]
     head_h_deg: tuple[float, float]
+    head_aspect_min: float
     head_fill_hollow_max: float
     head_fill_filled_min: float
     # 实心符头判据：先腐蚀掉细笔画（符干、谱线、空心环），看有没有核留下（SR-20 候选实现）。
@@ -163,10 +165,17 @@ class StaffConfig:
     head_cavity_min_h_deg: float
     head_cavity_aspect_max: float
     template_ncc_min: float
+    # 模板归一化后的画布尺寸，像素（SR-22 的"按 bbox 归一化"）。
+    template_norm_w: int
+    template_norm_h: int
     stem_len_deg: tuple[float, float]
     beam_coverage: float
     beam_thickness_deg: tuple[float, float]
     layer_gap_deg: float
+    # 符尾区域（SR-31）：墨迹面积下限，deg²；行均值下限；行分组间隔，deg。
+    flag_min_ink_deg2: float
+    flag_row_mean: float
+    flag_row_gap_deg: float
     # 规格 §5 把附点面积写成 "3–0.45·deg²"：下限是平方像素常数，
     # 上限是 deg² 的倍数，所以拆成两个字段，运行时上限 = dot_max_area_deg2 × deg²。
     dot_min_area_px: float
@@ -174,12 +183,23 @@ class StaffConfig:
     # 附点锚点：符头中心偏右 dot_offset_deg=[近,远]，纵向 dot_dy_deg（SR-33）。
     dot_offset_deg: tuple[float, float]
     dot_dy_deg: float
+    # 双附点：第二个点相对第一个点的额外位移，deg；附点外接框上限，deg（SR-34）。
+    dot_second_gap_deg: float
+    dot_max_side_deg: float
+    # 多小节休止条：横向覆盖率下限（SR-39b）。
+    rest_bar_coverage: float
     # 全休止/二分休止的实心矩形宽度（SR-37）；两种休止只靠挂线位置区分。
     rest_rect_w_deg: tuple[float, float]
     # 同一个实心矩形的高度范围，deg；比横梁薄、比附点厚。
     rest_rect_h_deg: tuple[float, float]
+    # 矩形填充率下限；矩形贴到谱线的容差，deg（SR-37 的"挂线位置"判法）。
+    rest_rect_fill_min: float
+    rest_line_snap_deg: float
     # 四分/八分/十六分/三十二分休止字形的高度范围（SR-38/SR-39）。
     rest_glyph_h_deg: tuple[float, float]
+    # 四分休止字形高宽比下限；钩状休止的钩凸出量（相对字形宽）（SR-38/SR-39）。
+    rest_quarter_aspect: float
+    rest_hook_protrude_deg: float
     pair_max_deg: float
 
 
@@ -246,6 +266,7 @@ _SCHEMA: dict[str, str] = {
     "staff.line_erase_pad_px": _INT,
     "staff.head_w_deg": _FLOAT_PAIR,
     "staff.head_h_deg": _FLOAT_PAIR,
+    "staff.head_aspect_min": _FLOAT,
     "staff.head_fill_hollow_max": _FLOAT,
     "staff.head_fill_filled_min": _FLOAT,
     "staff.head_erode_deg": _FLOAT,
@@ -253,19 +274,32 @@ _SCHEMA: dict[str, str] = {
     "staff.head_cavity_min_h_deg": _FLOAT,
     "staff.head_cavity_aspect_max": _FLOAT,
     "staff.template_ncc_min": _FLOAT,
+    "staff.template_norm_w": _INT,
+    "staff.template_norm_h": _INT,
     "staff.stem_len_deg": _FLOAT_PAIR,
     "staff.beam_coverage": _FLOAT,
     "staff.beam_thickness_deg": _FLOAT_PAIR,
     "staff.layer_gap_deg": _FLOAT,
+    # 符尾区域（SR-31）的三个阈值。
+    "staff.flag_min_ink_deg2": _FLOAT,
+    "staff.flag_row_mean": _FLOAT,
+    "staff.flag_row_gap_deg": _FLOAT,
     # 规格 §5 的 dot 一行写成 "3–0.45·deg²"：下限是平方像素，上限是 deg² 的倍数。
     "staff.dot_min_area_px": _FLOAT,
     "staff.dot_max_area_deg2": _FLOAT,
     "staff.dot_offset_deg": _FLOAT_PAIR,
     "staff.dot_dy_deg": _FLOAT,
-    # spec-staff.md §5.6：全/二分休止矩形宽度（SR-37）、小休止字形高度（SR-38/SR-39）。
+    "staff.dot_second_gap_deg": _FLOAT,
+    "staff.dot_max_side_deg": _FLOAT,
+    # spec-staff.md §5.6：休止三组与多小节休止条的阈值（SR-37..39b）。
+    "staff.rest_bar_coverage": _FLOAT,
     "staff.rest_rect_w_deg": _FLOAT_PAIR,
     "staff.rest_rect_h_deg": _FLOAT_PAIR,
+    "staff.rest_rect_fill_min": _FLOAT,
+    "staff.rest_line_snap_deg": _FLOAT,
     "staff.rest_glyph_h_deg": _FLOAT_PAIR,
+    "staff.rest_quarter_aspect": _FLOAT,
+    "staff.rest_hook_protrude_deg": _FLOAT,
     "staff.pair_max_deg": _FLOAT,
 }
 
@@ -297,8 +331,9 @@ def repo_root() -> Path:
     raise ConfigError(f"从 {module} 向上找不到含 configs/default.toml 的仓库根")
 
 
+@lru_cache(maxsize=1)
 def load_staff_config() -> StaffConfig:
-    """只读 `configs/default.toml` 的 `[staff]` 组。
+    """只读 `configs/default.toml` 的 `[staff]` 组（结果缓存：判据的缺省构造会反复取它）。
 
     读谱层的阈值与 provider 无关，所以不需要 provider 文件；判据的缺省构造函数用这个，
     免得把阈值又写一份在代码里。命令行/编排层要覆盖时照常传 `load_config(...).staff`。

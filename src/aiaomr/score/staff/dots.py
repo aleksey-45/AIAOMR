@@ -17,11 +17,6 @@ from ...kernel.config import StaffConfig, load_staff_config
 from .base import Criterion, Finding
 from .context import GeoContext
 
-# 第二个附点相对第一个附点的额外位移，deg（双附点）。
-DOT_SECOND_GAP_DEG = 0.9
-# 附点自身外接框的上限，deg（比这个大的不是点）。
-DOT_MAX_SIDE_DEG = 0.5
-
 
 class DotCriterion(Criterion):
     """附点：`value` = 锚点上的附点个数（1 或 2），`bbox` 是第一个附点。"""
@@ -44,6 +39,7 @@ class DotCriterion(Criterion):
         deg = ctx.deg
         near, far = (value * deg for value in self.staff.dot_offset_deg)
         dy_max = self.staff.dot_dy_deg * deg
+        second_gap = self.staff.dot_second_gap_deg * deg
         out: list[Finding] = []
         for anchor_bbox, anchor_kind in anchors:
             center_x = (anchor_bbox[0] + anchor_bbox[2]) / 2
@@ -54,7 +50,7 @@ class DotCriterion(Criterion):
                 blob_y = (blob[1] + blob[3]) / 2
                 dx = blob_x - center_x
                 dy = blob_y - center_y
-                if not (near <= dx <= far + DOT_SECOND_GAP_DEG * deg):
+                if not (near <= dx <= far + second_gap):
                     continue  # 左侧/太远的小点不是这个符头的附点（断音点也在这里被排除）
                 if abs(dy) > dy_max:
                     continue
@@ -106,7 +102,7 @@ class DotCriterion(Criterion):
         deg = ctx.deg
         min_area = self.staff.dot_min_area_px
         max_area = self.staff.dot_max_area_deg2 * deg * deg
-        max_side = DOT_MAX_SIDE_DEG * deg
+        max_side = self.staff.dot_max_side_deg * deg
         mask = ctx.beam_dark.astype(np.uint8) * 255
         count, _labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         blobs: list[tuple[int, int, int, int]] = []

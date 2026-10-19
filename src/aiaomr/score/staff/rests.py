@@ -18,19 +18,9 @@ from ...kernel.config import StaffConfig, load_staff_config
 from .base import Criterion, Finding
 from .context import GeoContext
 
-# 多小节休止条的横向覆盖率下限（SR-39b，沿用原型）。
-REST_BAR_COVERAGE = 0.8
-# 全/二分休止矩形必须够实（墨迹 / 外接框）。
-REST_RECT_FILL_MIN = 0.85
-# 矩形贴到谱线的容差，deg。抹线会吃掉矩形贴线的一条边，所以容差要覆盖抹线余量。
-REST_LINE_SNAP_DEG = 0.3
-# 四分休止字形的高宽比下限：折线形又高又窄，明显区别于钩状休止。
-REST_QUARTER_ASPECT = 2.0
-# 数钩数时，左侧凸出超过这个比例（相对字形宽）才算一个钩。
-REST_HOOK_PROTRUDE = 0.25
-# 休止类别 → tick（1/32 拍为 1）。
+# 休止类别 → tick（1/32 拍为 1）：纯语义映射表，不是阈值。
 REST_TICKS = {"whole": 32, "half": 16, "quarter": 8, "eighth": 4, "16th": 2, "32nd": 1}
-# 钩数 → 类别。
+# 钩数 → 类别：纯语义映射表。
 REST_BY_HOOKS = {1: "eighth", 2: "16th", 3: "32nd"}
 
 
@@ -60,11 +50,14 @@ class RestBarCriterion(Criterion):
 
     name = "rest_bar"
 
+    def __init__(self, staff: StaffConfig | None = None) -> None:
+        self.staff = staff if staff is not None else load_staff_config()
+
     def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
         if ctx.dark.size == 0:
             return []
         coverage = float(ctx.beam_dark.mean(axis=1).max())
-        if coverage > REST_BAR_COVERAGE:
+        if coverage > self.staff.rest_bar_coverage:
             return [Finding(kind=self.name, value=float(REST_TICKS["whole"]),
                             bbox=(0, 0, ctx.width, ctx.height), evidence={"category": "rest_bar"})]
         return []
@@ -88,13 +81,13 @@ class RestRectCriterion(Criterion):
         count, _labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         min_w, max_w = self.staff.rest_rect_w_deg
         min_h, max_h = self.staff.rest_rect_h_deg
-        snap = REST_LINE_SNAP_DEG * deg
+        snap = self.staff.rest_line_snap_deg * deg
         out: list[Finding] = []
         for index in range(1, count):
             x, y, w, h, area = (int(value) for value in stats[index])
             if not (min_w * deg <= w <= max_w * deg and min_h * deg <= h <= max_h * deg):
                 continue
-            if area / float(w * h) < REST_RECT_FILL_MIN:
+            if area / float(w * h) < self.staff.rest_rect_fill_min:
                 continue
             top_gap = min(abs(y - row) for row in ctx.line_rows)
             bottom_gap = min(abs(y + h - row) for row in ctx.line_rows)
@@ -164,19 +157,19 @@ class RestGlyphCriterion(Criterion):
             )
         return out
 
-    @staticmethod
-    def _category(ctx: GeoContext, x0: int, y0: int, x1: int, y1: int) -> str | None:
+    def _category(self, ctx: GeoContext, x0: int, y0: int, x1: int, y1: int) -> str | None:
         width, height = x1 - x0, y1 - y0
-        if height / max(1, width) >= REST_QUARTER_ASPECT:
+        if height / max(1, width) >= self.staff.rest_quarter_aspect:
             return "quarter"
-        hooks = _count_hooks(ctx.beam_dark[y0:y1, x0:x1])
+        hooks = _count_hooks(ctx.beam_dark[y0:y1, x0:x1], self.staff.rest_hook_protrude_deg)
         return REST_BY_HOOKS.get(hooks)
 
 
-def _count_hooks(glyph: np.ndarray) -> int:
+def _count_hooks(glyph: np.ndarray, protrude: float) -> int:
     """数钩数：字形逐行最左墨迹相对主体左缘向左凸出的连续行段数。
 
     八分休止是"7"（顶部一个球 = 1 个钩），十六分 / 三十二分在左侧再多一到两个钩。
+    `protrude` 是"凸出多少（相对字形宽）才算一个钩"，来自 `cfg.staff.rest_hook_protrude_deg`。
     """
     if glyph.size == 0:
         return 0
@@ -192,7 +185,7 @@ def _count_hooks(glyph: np.ndarray) -> int:
         return 0
     width = glyph.shape[1]
     body = int(np.median(leftmost))
-    threshold = body - REST_HOOK_PROTRUDE * width
+    threshold = body - protrude * width
     groups = 0
     inside = False
     for value in leftmost:
