@@ -5,8 +5,8 @@
 没有这两份运行时产物时跳过；它们是 `out/` 下的证据，不入库。
 
 结论口径（2026-10-19 实测）：
-- 品数（忽略弦号）92.6% 的小节完全一致；
-- 弦号 + 品数 38.2% 完全一致——弦号归属是当前的主要缺口，见 `tools/review/compare_tab.py`。
+- 品数（忽略弦号）91.7% 的小节完全一致；
+- 弦号 + 品数 36.1% 完全一致——弦号归属是当前的主要缺口，见 `tools/review/compare_tab.py`。
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def test_every_non_rest_truth_measure_is_covered() -> None:
 
 
 def test_frets_match_at_least_90_percent() -> None:
-    """只比品数（不管弦号）时，至少 90% 的非空小节完全一致（当前实测 92.6%）。"""
+    """只比品数（不管弦号）时，至少 90% 的非空小节完全一致（当前实测 91.7%）。"""
     report = _report()
     checked = report["tabCompared"]
 
@@ -54,7 +54,7 @@ def test_frets_match_at_least_90_percent() -> None:
     assert report["fretExact"] / checked >= 0.90
 
 
-@pytest.mark.xfail(strict=True, reason="弦号归属未修：弦+品完全一致当前只有 38.2%")
+@pytest.mark.xfail(strict=True, reason="弦号归属未修：弦+品完全一致当前只有 36.1%")
 def test_string_and_fret_must_be_perfect_for_now() -> None:
     """目标：每一小节的（弦号，品数）都与真值一致。当前不成立，先记为已知缺口。"""
     report = _report()
