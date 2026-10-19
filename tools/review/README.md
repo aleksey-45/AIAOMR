@@ -30,3 +30,17 @@
 
 颜色：红 = 小节内容框，蓝 = 五线谱带，绿 = TAB 带，橙 = 谱号/调号/拍号区，品红 = 实际裁片框。
 每页还会打印一段 JSON（系统数、小节数、裁片清单），可以贴进报告。
+
+## compare_tab.py
+
+把模型读到的 TAB 与真值逐小节比对，回答"几弦几品能不能全对"。用序列对齐处理多小节休止
+（谱面一条休止条 = 真值 N 个小节，模型不一定报 `multiRest`），并分别给出两个口径：
+TAB（弦号 + 品数）完全一致、只比品数（忽略弦号）。
+
+```bash
+.venv/Scripts/python.exe tools/review/compare_tab.py     --measures out/nd-check/measures --truth "out/p1/NIGHT DANCER/truth.json"     --json-out out/nd-check/tab-compare.json
+```
+
+2026-10-19 NIGHT DANCER 实测（4 页、80 次调用）：非空小节里只比品数 91.7% 一致，
+弦号+品数只有 36.1% 一致——弦号归属是当前主要缺口。回归测试见
+`tests/corpus/test_night_dancer_tab.py`（离线，缺录制时跳过）。
