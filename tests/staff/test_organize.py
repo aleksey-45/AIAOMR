@@ -82,3 +82,13 @@ def test_unknown_duration_abstains() -> None:
 
     assert result.status == "unknown"
     assert any(reason == "AR-02" for reason, _detail in result.abstains)
+
+
+def test_single_note_may_start_off_the_beat() -> None:
+    """单个音符不是连梁组，可以落在任何合法拍位上（附点四分从第三拍后半开始很正常）。"""
+    beats = [beat("half"), beat("eighth"), beat("quarter", dots=1)]
+
+    result = organize(beats, signature=ts(4))
+
+    assert result.status == "ok"
+    assert result.ticks == 32

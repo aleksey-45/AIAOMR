@@ -96,10 +96,17 @@ def organize(
     if total != expected:
         abstains.append(("AR-05", {"claimed": total, "expected": expected}))
 
-    # 连梁组边界必须落在拍组边界上（SR-60）
+    # 连梁组边界必须落在拍组边界上（SR-60）。只约束**连梁组**（一串音符被横梁连起来），
+    # 单个音符本来就可以落在任何合法拍位上（附点四分从"第三拍后半"开始是正常的）。
     group_ticks = beat_group_ticks(signature)
+    group_sizes: dict[int, int] = {}
+    for beat in beats:
+        if beat.group is not None:
+            group_sizes[beat.group] = group_sizes.get(beat.group, 0) + 1
     if group_ticks:
         for group_id, (start, end) in sorted(group_spans.items()):
+            if group_sizes.get(group_id, 0) < 2:
+                continue
             if start % group_ticks or end % group_ticks:
                 abstains.append(
                     ("AR-04", {"group": group_id, "start": start, "end": end,

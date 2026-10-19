@@ -144,3 +144,27 @@ def test_boundary_barline_is_not_counted_as_a_stem() -> None:
 
     assert rhythm.status == "ok"
     assert [beat.duration for beat in rhythm.beats] == ["quarter"] * 4
+
+
+def test_header_region_never_enters_the_measure_window() -> None:
+    """谱号/调号/拍号由骨架层先读，读小节内容的窗口左界必须从 headerX1 起（SR-13b）。"""
+    arr = np.full((150, 320), 255, dtype=np.uint8)
+    for line in range(5):
+        arr[60 + line * DEG : 62 + line * DEG, 10:310] = 0
+    # 谱号区里画一个"假音符"（符干 + 实心符头），它绝不能被读成小节内容
+    arr[40:100, 20:22] = 0
+    arr[92:102, 14:28] = 0
+    # 内容区里画一个正规四分音符
+    arr[40:100, 120:122] = 0
+    arr[92:102, 114:128] = 0
+    box = MeasureBox(index=1, printed=None, x0=10.0, x1=310.0, width=300.0)
+    system = System(
+        id=1, page=0, y0=60.0, y1=60.0 + 4 * DEG, tabY0=0.0, tabY1=0.0,
+        tabLines=[], measures=[box], headerX0=10.0, headerX1=40.0,
+    )
+
+    rhythm = read_measure(arr, system, box, DEG, expected_ticks=8)
+
+    assert rhythm.beats
+    assert all(beat.x >= 40 for beat in rhythm.beats)
+    assert rhythm.status == "ok"

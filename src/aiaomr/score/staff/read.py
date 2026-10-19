@@ -117,27 +117,17 @@ def _own_window(
     findings: dict[str, list],
     ctx,
     measure_box: MeasureBox,
-    system: System,
     cfg: StaffConfig,
-    is_first_measure: bool,
 ) -> dict[str, list]:
-    """只保留"属于本小节"的判据结论（SR-14），并挡掉系统头部谱号区的机头符号。
+    """只保留"属于本小节"的判据结论（SR-14）。
 
-    窗口左右各留了 `measure_margin_deg` 的余量（否则边界上的符干会被切掉），所以这里不能再
-    按窗口边界算，而是按**小节框**算：符号中心落在 `[x0, x1]` 才算本小节的。系统第一个小节
-    的窗口里还混着谱号/调号/拍号，它们都在 `headerX0..headerX1` 里，直接丢掉。
+    窗口左右留了 `measure_margin_deg` 的余量（否则边界上的符干会被切掉），所以归属不能按
+    窗口边界算，而是按**内容小节框**算：符号中心落在 `[x0, x1]` 才算本小节的。
     """
     left = measure_box.x0 - ctx.left
     right = measure_box.x1 - ctx.left
-    header_end = None
-    if (
-        is_first_measure
-        and system.headerX1 > system.headerX0
-        and system.headerX1 <= measure_box.x1
-    ):
-        header_end = system.headerX1 - ctx.left
 
-    band = (system.y1 - system.y0)
+    band = 4.0 * ctx.deg  # 谱表高（五条线之间是 4 个 deg）
     barline_tol = max(6.0, 0.8 * ctx.deg)
     out: dict[str, list] = {}
     for kind, items in findings.items():
@@ -146,8 +136,6 @@ def _own_window(
             if kind != "rest_bar":
                 center = _center(finding)
                 if center < left or center > right:
-                    continue
-                if header_end is not None and center < header_end:
                     continue
             kept.append(finding)
         out[kind] = kept
@@ -162,7 +150,32 @@ def _own_window(
             and abs((stem.bbox[3] - stem.bbox[1]) - band) <= 0.4 * ctx.deg
         )
     ]
+    # 贴着小节线的一小块墨（小节线的残余、连音线起点）会被当成休止字形；真实记谱里
+    # 第一个符号离小节线至少有一个符头的距离，所以贴着边界的一律不算休止。
+    for kind in ("rest_rect", "rest_glyph"):
+        out[kind] = [
+            rest for rest in out.get(kind, [])
+            if min(abs(_center(rest) - left), abs(right - _center(rest))) > barline_tol
+        ]
     return out
+
+
+def _drop_rests_on_notes(findings: dict[str, list]) -> None:
+    """休止符不能和音符/符干占同一块位置（真页面上符头被谱线切成的小矩形会冒充休止符）。"""
+    occupied = list(findings.get("head", [])) + list(findings.get("stem", []))
+    for kind in ("rest_rect", "rest_glyph"):
+        kept = []
+        for rest in findings.get(kind, []):
+            cx = (rest.bbox[0] + rest.bbox[2]) / 2
+            cy = (rest.bbox[1] + rest.bbox[3]) / 2
+            clash = False
+            for item in occupied:
+                if item.bbox[0] - 2 <= cx <= item.bbox[2] + 2 and item.bbox[1] - 2 <= cy <= item.bbox[3] + 2:
+                    clash = True
+                    break
+            if not clash:
+                kept.append(rest)
+        findings[kind] = kept
 
 
 def _abstains(problems: list[tuple[str, dict]], index: int) -> list[Abstain]:
@@ -186,8 +199,23 @@ def read_measure(
     """读一个小节。`signature` 是该小节生效的拍号（骨架层给），拍格只用来否决（SR-02）。"""
     cfg = staff if staff is not None else load_staff_config()
     index = measure_box.index
+    # 谱号/调号/拍号是骨架层（skeleton）的职责，由它先读好；读小节内容的窗口**绝不能**
+    # 把它们截进来再过滤（SR-13b）。所以系统第一个小节的窗口左界从小节框或 headerX1 里取大者。
+    content_x0 = measure_box.x0
+    first_measure = bool(system.measures) and measure_box.index == system.measures[0].index
+    if first_measure and system.headerX1 > system.headerX0 and system.headerX1 <= measure_box.x1:
+        content_x0 = max(content_x0, system.headerX1)
+    content_box = measure_box
+    if content_x0 != measure_box.x0:
+        content_box = MeasureBox(
+            index=measure_box.index,
+            printed=measure_box.printed,
+            x0=content_x0,
+            x1=measure_box.x1,
+            width=measure_box.x1 - content_x0,
+        )
     ctx = measure_context(
-        arr, system, measure_box, deg,
+        arr, system, content_box, deg,
         margin_deg=cfg.band_margin_deg if margin_deg is None else margin_deg,
         x_margin_deg=cfg.measure_margin_deg,
         line_runs=line_runs,
@@ -207,8 +235,8 @@ def read_measure(
     findings["rest_bar"] = RestBarCriterion(cfg).detect(ctx, findings)
     findings["rest_rect"] = RestRectCriterion(cfg).detect(ctx, findings)
     findings["rest_glyph"] = RestGlyphCriterion(cfg).detect(ctx, findings)
-    first_measure = bool(system.measures) and measure_box.index == system.measures[0].index
-    findings = _own_window(findings, ctx, measure_box, system, cfg, first_measure)
+    findings = _own_window(findings, ctx, content_box, cfg)
+    _drop_rests_on_notes(findings)
 
     # 多小节休止条：整小节一条休止（条数由印刷数字/模型给，本层只说"这是休止条"）。
     if findings["rest_bar"] and not findings["rest_rect"] and not findings["rest_glyph"]:

@@ -111,7 +111,10 @@ class FlagCriterion(Criterion):
             bottom = min(ctx.height, top + int(1.8 * ctx.deg))
             if right <= x or bottom <= top:
                 continue
-            region = ctx.beam_dark[max(0, top) : bottom, x:right]
+            region = ctx.beam_dark[max(0, top) : bottom, x:right].copy()
+            # 符干本身就在这块区域里：不先把它抹掉，符干自己的墨迹就会被当成"符尾"，
+            # 每个四分音符都会被判成八分。
+            region[:, : 2] = False
             if region.sum() < min_ink:
                 continue
             rows = np.flatnonzero(region.mean(axis=1) > self.staff.flag_row_mean)

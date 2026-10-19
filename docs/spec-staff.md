@@ -251,6 +251,7 @@ class MeasureRhythm(_Model):
 | 参数 | 初始 | 说明 |
 |---|---|---|
 | `staff.band_margin_deg` | 4.0 | 五线谱带上下余量（SR-10/SR-12） |
+| `staff.measure_margin_deg` | 0.5 | 小节窗口左右外扩（SR-14）；只作上下文，符号归属按中心落在小节框内判 |
 | `staff.line_erase_pad_px` | 1 | 抹谱线时的抗锯齿余量（SR-11） |
 | `staff.head_w_deg` | 0.7–1.9 | 符头宽度范围 |
 | `staff.head_h_deg` | 0.3–1.2 | 符头高度范围 |
