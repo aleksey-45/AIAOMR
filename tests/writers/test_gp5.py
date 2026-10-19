@@ -166,3 +166,27 @@ def test_time_signature_change_is_written(tmp_path: Path) -> None:
     song = gp.parse(str(path), encoding="cp936")
     headers = song.measureHeaders
     assert headers[1].timeSignature.numerator == 2
+
+
+def test_tie_marks_only_the_continuation_note(tmp_path: Path) -> None:
+    """GP5 里延音只在"接上一条"的那条记 tie；起点是普通音符（E-02、§4.3）。
+
+    起点也记 tie 的话，PyGuitarPro 重读时按延音链取品数，往返核对会报不一致。
+    """
+    first = note(string=1, fret=3)
+    first.tie = True
+    second = Note(string=1, fret=3, tie=False, tieFromPrevious=True,
+                  techniques=[], pitch=31, pitchClaim=None)
+    ir = make_ir([measure(1, [beat("half", [first])]), measure(2, [beat("half", [second])])])
+    path = tmp_path / "tie.gp5"
+
+    report = GP5Writer().write(ir, str(path))
+
+    assert report.roundtrip == "OK"
+    song = gp.parse(str(path), encoding="cp936")
+    beats = [b for m in song.tracks[0].measures for b in m.voices[0].beats]
+    # GP5 文件里"普通音符"的类型字节是 0，PyGuitarPro 把它命名成 NoteType.rest，
+    # 只是命名问题；延音是 2（NoteType.tie）。真实 GP5（打上花火.gp5）也是这样。
+    assert beats[0].notes[0].type != gp.NoteType.tie
+    assert beats[1].notes[0].type == gp.NoteType.tie
+    assert beats[1].notes[0].value == 3

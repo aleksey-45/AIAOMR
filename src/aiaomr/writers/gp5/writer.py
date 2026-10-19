@@ -191,7 +191,10 @@ class GP5Writer:
                     value=note.fret,
                     string=n_strings - note.string + 1,  # 唯一翻转点（E-02）
                 )
-                if note.tie or note.tieFromPrevious:
+                # GP5 里只有"接上一条延音"的这条记 tie；延音起点是普通音符。
+                # 起点也记 tie 的话，PyGuitarPro 重读时会按"延音链"把它的品数
+                # 解析成上一音的值（getTiedNoteValue），往返核对就会错。
+                if note.tieFromPrevious:
                     gp_note.type = gp.NoteType.tie
                 gp_beat.notes.append(gp_note)
             voice.beats.append(gp_beat)
@@ -267,7 +270,7 @@ class GP5Writer:
                     problems.append(f"小节 {measure.index} 拍 {beat_index}: 音符 {got_notes} != {want_notes}")
                 got_ties = sorted(i for i, n in enumerate(got.notes) if n.type == gp.NoteType.tie)
                 want_ties = sorted(i for i, n in enumerate(want.notes)
-                                   if n.tie or n.tieFromPrevious)
+                                   if n.tieFromPrevious)
                 if got_ties != want_ties:
                     problems.append(f"小节 {measure.index} 拍 {beat_index}: 连音 {got_ties} != {want_ties}")
         return problems
