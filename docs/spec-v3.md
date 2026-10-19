@@ -990,8 +990,8 @@ out/<song>/
 
 | 来源 | 用途 |
 |---|---|
-| `老人与海`、`打上花火`（冻结真值 `truth.gp`） | 带分母打分 |
-| `NIGHT DANCER`、`Клетка` | 回归对照 |
+| `corpus/truth/{打上花火,老人与海,NIGHT DANCER,Клетка}.gp5` | 四首冻结真值**副本**，带分母打分与回归对照。GPX 源（后缀是 `.gp` 的 zip）已用 `tools/truth_to_gp5.py` 转成 `.gp5`，评测与人工比对都读副本，不再现场转换 |
+| `out/p1/<song>/truth.json` | `tools/dump.mjs` 导出的真值缓存（可重导，不进库） |
 | DadaGP 渲染 + 加噪 | class 1/5/6 合成语料 |
 
 ### 9.4 fixture 录制与回放

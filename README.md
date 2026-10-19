@@ -196,9 +196,10 @@ src/aiaomr/
 |---|---|
 | `configs/` | `default.toml`（与 provider 无关的参数）、`providers/<name>.toml`（provider 专属）、`thresholds.toml`（验收阈值） |
 | `tests/` | 190 个测试，默认离线；`test_layers.py` 用 AST 扫描 import，强制四层依赖（含 LAY-09） |
-| `tools/` | `audit.mjs`（alphaTab 审计）、`dump.mjs`（真值导出与评测） |
+| `tools/` | `audit.mjs`（alphaTab 审计）、`dump.mjs`（真值导出与评测）、`truth_to_gp5.py`（真值 → gp5 副本） |
 | `scripts/` | `p0_probe.py`：P0 一次性探针，不属于产品路径 |
 | `docs/` | 规范、方案、实施计划、P0/P1 报告 |
+| `corpus/truth/` | 四首歌真值的 `.gp5` 副本，评测与人工比对都读它 |
 | `out/` | 运行产物，已 gitignore |
 
 几条"只允许在一处"的规矩：
@@ -221,6 +222,7 @@ src/aiaomr/
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 实施计划（每个任务先写会失败的测试）。注意：勾选框状态过期，进度以 `git log`、代码和阶段报告为准 |
 | [`docs/p0-results.md`](docs/p0-results.md) | 两分钱实测：1.6 MP、thinking 关、单次读整系统这些参数是怎么定下来的 |
 | [`docs/p1-report.md`](docs/p1-report.md) | P1 验收报告：为什么 0/4、卡在哪、哪些项已通过 |
+| [`docs/plan-measure-score.md`](docs/plan-measure-score.md) | **设计稿**：小节从「通过/不通过」改成打分，按分数分「直接通过 / AI 复审 / 判错」三档（未实现） |
 | [`AGENTS.md`](AGENTS.md) | 开工前必读：红线、依赖方向、开发命令、多 agent 分工 |
 
 规范与方案文档头部目前仍写"待审核"；它们已经按 v3 实施，但不要当成"已审核定稿"。
