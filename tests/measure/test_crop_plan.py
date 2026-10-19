@@ -47,8 +47,8 @@ def test_wide_system_is_split_with_header_strip(tmp_path: Path) -> None:
     assert [box.index for task in tasks for box in task.measures] == [1, 2, 3, 4]
 
 
-def test_crop_keeps_staff_and_tab_padding(tmp_path: Path) -> None:
-    """RD-11：五线谱上方留 40%（加线/高把位），TAB 下方留 25%（品数数字）。"""
+def test_crop_keeps_two_staff_spaces_above_and_one_below(tmp_path: Path) -> None:
+    """RD-11：五线谱上沿外拓 2 格，TAB 下沿外拓 1 格（单位 deg）。"""
     arr, bands = one_system_page(width=900, height=560, deg=12, bars=(60, 400, 740))
     system = system_of(bands, tab_spacing=18, page_width=900)
     system.measures = find_bars(arr, system, deg=12.0)
@@ -57,10 +57,10 @@ def test_crop_keeps_staff_and_tab_padding(tmp_path: Path) -> None:
 
     tasks = plan(image, [system], tmp_path, cfg)
 
-    content = system.tabY1 - system.y0
-    pad_top = max(4, int(round(content * cfg.crop.staff_pad_ratio)))
-    pad_bottom = max(4, int(round(content * cfg.crop.tab_pad_ratio)))
-    assert (cfg.crop.staff_pad_ratio, cfg.crop.tab_pad_ratio) == (0.40, 0.25)
+    deg = (system.y1 - system.y0) / 4.0
+    pad_top = int(round(cfg.crop.staff_pad_deg * deg))
+    pad_bottom = int(round(cfg.crop.tab_pad_deg * deg))
+    assert (cfg.crop.staff_pad_deg, cfg.crop.tab_pad_deg) == (2.0, 1.0)
     assert tasks
     left, top, right, bottom = tasks[0].crop.box
     assert top == max(0, int(round(system.y0)) - pad_top)

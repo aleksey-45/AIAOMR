@@ -81,11 +81,10 @@ def plan(
         if not system.measures:
             continue
         deg = (system.y1 - system.y0) / 4.0
-        # RD-11：符头和数字可能画在五线谱/ TAB 带之外。五线谱一侧要给到 40% 的
-        # 系统内容高（加线、高把位音符头 25% 实测会被切），TAB 一侧 25% 够用。
-        content = max(1.0, float(system.tabY1) - float(system.y0))
-        pad_top = max(4, int(round(content * cfg.crop.staff_pad_ratio)))
-        pad_bottom = max(4, int(round(content * cfg.crop.tab_pad_ratio)))
+        # RD-11：符头和数字可能画在谱表外。五线谱上下各外拓 2 格、TAB 上下各外拓 1 格，
+        # 单位是 deg（R-03）；裁片从五线谱上沿外 2 格开始，到 TAB 下沿外 1 格结束。
+        pad_top = int(round(cfg.crop.staff_pad_deg * deg))
+        pad_bottom = int(round(cfg.crop.tab_pad_deg * deg))
         top = max(0, int(round(system.y0)) - pad_top)
         bottom = min(page_image.size[1], int(round(system.tabY1)) + pad_bottom + 1)
         band_height = bottom - top

@@ -70,10 +70,10 @@ class CropConfig:
     max_side_px: int
     max_measures_per_call: int
     header_strip_px: tuple[int, int]
-    # 裁片上下留的冗余，按"五线谱上沿到 TAB 下沿"的高度比例给（RD-11）：
-    # 五线谱一侧要容纳加线/高音符头，给得更多；TAB 一侧只保数字不被切。
-    staff_pad_ratio: float
-    tab_pad_ratio: float
+    # 裁片外拓，单位是谱线间距 deg（RD-11）：五线谱上下各外拓 2 格，
+    # TAB 上下各外拓 1 格。符合 R-03：几何阈值以 deg 为单位，不用像素或比例。
+    staff_pad_deg: float
+    tab_pad_deg: float
 
 
 @dataclass(frozen=True)
@@ -185,8 +185,8 @@ _SCHEMA: dict[str, str] = {
     "crop.max_side_px": _INT,
     "crop.max_measures_per_call": _INT,
     "crop.header_strip_px": _INT_PAIR,
-    "crop.staff_pad_ratio": _FLOAT,
-    "crop.tab_pad_ratio": _FLOAT,
+    "crop.staff_pad_deg": _FLOAT,
+    "crop.tab_pad_deg": _FLOAT,
     "read.min_deg_eff": _FLOAT,
     "budget.cny_per_8measures": _DECIMAL,
     "budget.precision": _DECIMAL,

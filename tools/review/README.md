@@ -23,13 +23,8 @@
 .venv/Scripts/python.exe tools/review/overlay_boxes.py \
     --input "E:/Bass Guitar/AIAOMR/打上花火" --out out/review
 
-# 同时画出实际送给模型的裁片（按 system 分批 + 头部引用条）
-.venv/Scripts/python.exe tools/review/overlay_boxes.py \
-    --input "E:/Bass Guitar/AIAOMR/打上花火/1.png" --out out/review/打上花火_p1_crops.png --crop-plan
-```
-
-颜色：红 = 小节内容框，蓝 = 五线谱带，绿 = TAB 带，橙 = 谱号/调号/拍号区，品红 = 实际裁片框。
-每页还会打印一段 JSON（系统数、小节数、裁片清单），可以贴进报告。
+颜色：红 = 小节框（五线谱上下各外拓 2 格），蓝 = 五线谱带，绿 = TAB 带（上下各外拓 1 格），橙 = 谱号/调号/拍号区，黄虚线 = 谱表在但没配成系统的区域。
+每页还会打印一段 JSON（系统数、小节数、未识别系统坐标），可以贴进报告。
 
 ## compare_tab.py
 
