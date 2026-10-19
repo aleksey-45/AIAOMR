@@ -20,8 +20,6 @@ from PIL import Image
 from ..kernel.config import Config
 from ..kernel.contracts import Crop, MeasureBox, MeasureTask, System
 
-# 系统图的上下留白，按 deg 的倍数给（R-03：阈值以 deg 为单位）。
-_PAD_DEG = 0.25
 
 
 def _strip_width(deg: float, cfg: Config) -> int:
@@ -83,7 +81,10 @@ def plan(
         if not system.measures:
             continue
         deg = (system.y1 - system.y0) / 4.0
-        pad = max(4, int(round(deg * _PAD_DEG)))
+        # RD-11：符头和数字可能画在五线谱/ TAB 带之外（加线、品数旁的记号），
+        # 上下各留 25% 的系统内容高（五线谱上沿到 TAB 下沿），否则裁片会把它们切掉。
+        content = max(1.0, float(system.tabY1) - float(system.y0))
+        pad = max(4, int(round(content * cfg.crop.vertical_pad_ratio)))
         top = max(0, int(round(system.y0)) - pad)
         bottom = min(page_image.size[1], int(round(system.tabY1)) + pad + 1)
         band_height = bottom - top

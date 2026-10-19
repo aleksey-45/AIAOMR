@@ -70,6 +70,8 @@ class CropConfig:
     max_side_px: int
     max_measures_per_call: int
     header_strip_px: tuple[int, int]
+    # 裁片上下各留的冗余，按"五线谱上沿到 TAB 下沿"的高度比例给（RD-11）。
+    vertical_pad_ratio: float
 
 
 @dataclass(frozen=True)
@@ -181,6 +183,7 @@ _SCHEMA: dict[str, str] = {
     "crop.max_side_px": _INT,
     "crop.max_measures_per_call": _INT,
     "crop.header_strip_px": _INT_PAIR,
+    "crop.vertical_pad_ratio": _FLOAT,
     "read.min_deg_eff": _FLOAT,
     "budget.cny_per_8measures": _DECIMAL,
     "budget.precision": _DECIMAL,

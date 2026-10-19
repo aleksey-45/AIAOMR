@@ -45,3 +45,22 @@ def test_wide_system_is_split_with_header_strip(tmp_path: Path) -> None:
     assert tasks[1].hints["stripPx"] > 0
     # 拆分不能改变小节归属
     assert [box.index for task in tasks for box in task.measures] == [1, 2, 3, 4]
+
+
+def test_crop_keeps_25_percent_vertical_redundancy(tmp_path: Path) -> None:
+    """RD-11：符头/数字可能画在谱表外，裁片上下各留系统内容高的 25%。"""
+    arr, bands = one_system_page(width=900, height=560, deg=12, bars=(60, 400, 740))
+    system = system_of(bands, tab_spacing=18, page_width=900)
+    system.measures = find_bars(arr, system, deg=12.0)
+    image = Image.fromarray(arr).convert("RGB")
+    cfg = load_config("deepseek_flash")
+
+    tasks = plan(image, [system], tmp_path, cfg)
+
+    content = system.tabY1 - system.y0
+    pad = max(4, int(round(content * cfg.crop.vertical_pad_ratio)))
+    assert cfg.crop.vertical_pad_ratio == 0.25
+    assert tasks
+    left, top, right, bottom = tasks[0].crop.box
+    assert top == max(0, int(round(system.y0)) - pad)
+    assert bottom == min(image.size[1], int(round(system.tabY1)) + pad + 1)

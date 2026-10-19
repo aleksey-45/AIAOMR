@@ -366,6 +366,7 @@ AIAOMR/
 | RD-08 | 对外**只**暴露 `read_systems(tasks: list[MeasureTask]) -> list[MeasureResult]`；**禁止**把 provider 客户端、裁片路径、原始响应泄漏给 L3 |
 | RD-09 | 裁切上限**必须**取 `min(config, caps)`；`caps` 缺失即启动失败（V-12） |
 | RD-10 | 本层**禁止**判断对错、**禁止**补写任何 beat；它只负责"把像素变成结构化事实并校验形状" |
+| RD-11 | 裁片**必须**在系统内容（五线谱上沿到 TAB 下沿）上下各留 `crop.vertical_pad_ratio`（默认 25%）的冗余：符头与数字可能画在谱表之外（加线、品数旁的记号），切掉就再也读不出来 |
 
 ### 2.5 `verify` —— 验算与报警（L3）
 
@@ -702,6 +703,7 @@ GP5 的"技巧"分四类能力，**不是一堆平级标签**：音符效果（n
 | `crop.max_side_px` | 4096 | 长边上限；运行时再与 `caps.max_side_px` 取 min |
 | `crop.max_measures_per_call` | 8 | 单次调用小节数 |
 | `crop.header_strip_px` | 40–100 | 拆分裁片的引用条宽度（按 deg 取 `4×deg`，clamp 到该区间） |
+| `crop.vertical_pad_ratio` | 0.25 | 裁片上下冗余占系统内容高（五线谱上沿到 TAB 下沿）的比例（RD-11） |
 | `read.min_deg_eff` | 12 | 压缩后有效谱线间距下限；低于此值记录 WARN（不阻断） |
 | `budget.cny_per_8measures` | 0.0150 | **成本预算的唯一单位：人民币元 / 每 8 小节，谷价（空闲时段）口径**；四位小数。P0 实测（thinking 关、1.6 MP 裁片）每 8 小节约 ¥0.004；单首派生上限 = `ceil(measureCount/8) × 该值` |
 | `budget.precision` | 0.0001 | 记账精度（四位小数）。**它不是账单**：只用于预算闸与回归比较，不与 provider 对账 |

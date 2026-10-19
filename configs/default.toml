@@ -20,6 +20,9 @@ max_side_px = 4096
 max_measures_per_call = 8
 # 拆分裁片的引用条宽度区间，像素；实际宽度取 4×deg 再 clamp 到这里（RD-03、R-05）。
 header_strip_px = [40, 100]
+# 裁片上下各留的冗余，按系统内容高（五线谱上沿到 TAB 下沿）的比例给（RD-11）。
+# 符头和数字可能画在五线谱/TAB 之外（加线、品数上方的记号），留 25% 才不会被切掉。
+vertical_pad_ratio = 0.25
 
 [read]
 # 压缩后有效谱线间距下限，deg；低于此值只记 WARN，不阻断。
