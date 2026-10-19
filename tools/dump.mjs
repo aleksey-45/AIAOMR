@@ -57,6 +57,7 @@ const measures = staff.bars.map((bar, index) => {
           // 连音：isTieOrigin = 这条是延音的起点，isTieDestination = 这条接上一条延音。
           tie: Boolean(n.isTieOrigin),
           tieFromPrevious: Boolean(n.isTieDestination),
+          staccato: Boolean(n.isStaccato),
         })),
       });
     }
