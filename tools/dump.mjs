@@ -47,16 +47,36 @@ const measures = staff.bars.map((bar, index) => {
     for (const beat of voice.beats) {
       beats.push({
         ticks: beat.playbackDuration,
+        duration: beat.duration,     // alphaTab Duration 枚举：1/2/4/8/16/32/64
+        dots: beat.dots,
         rest: beat.isRest,
-        notes: beat.notes.map((n) => ({ string: n.string, fret: n.fret, pitch: n.realValue })),
+        notes: beat.notes.map((n) => ({
+          string: n.string,
+          fret: n.fret,
+          pitch: n.realValue,
+          // 连音：isTieOrigin = 这条是延音的起点，isTieDestination = 这条接上一条延音。
+          tie: Boolean(n.isTieOrigin),
+          tieFromPrevious: Boolean(n.isTieDestination),
+        })),
       });
     }
   }
   if (beats.length === 0) {
     // GP5 的空小节（整小节休止）一个 beat 都没有；按拍号补一条整小节休止，
     // 时值来自 masterBar.calculateDuration()（拍号算出来的），不是猜的。
-    beats.push({ ticks: masterBar.calculateDuration(), rest: true, notes: [] });
+    beats.push({ ticks: masterBar.calculateDuration(), duration: 1, dots: 0, rest: true, notes: [] });
   }
-  return { index: index + 1, timeSignature, beats };
+  return {
+    index: index + 1,
+    timeSignature,
+    keySignature: masterBar.keySignature,
+    beats,
+  };
 });
-console.log(JSON.stringify({ available: true, title: score.title, tuning, measures }));
+console.log(JSON.stringify({
+  available: true,
+  title: score.title,
+  tempo: score.tempo,
+  tuning,
+  measures,
+}));
