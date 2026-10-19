@@ -90,32 +90,6 @@ def build_suffix(task: MeasureTask, cfg: Config) -> str:
     return "\n".join(lines)
 
 
-def string_from_digit_y(
-    digit_y: float,
-    tab_lines: list[float],
-    crop_box: list[float],
-    string_count: int,
-) -> int | None:
-    """按品数数字的纵向位置定弦号（IR 约定：1 = 最低音弦）。
-
-    TAB 弦线按 y 升序（第 0 条是最上面的线，对应最高音弦 = IR 的 string_count）。
-    数字压在离它最近的那条线附近才算数：偏差超过半个弦间距就返回 None（交给上层）
-    而不是硬猜（RD-06b）。
-    """
-    if not tab_lines or len(tab_lines) < 2:
-        return None
-    top, bottom = float(crop_box[1]), float(crop_box[3])
-    page_y = top + float(digit_y) * (bottom - top)
-    distances = [abs(page_y - float(line)) for line in tab_lines]
-    nearest = min(range(len(distances)), key=lambda index: distances[index])
-    gaps = [tab_lines[index + 1] - tab_lines[index] for index in range(len(tab_lines) - 1)]
-    spacing = float(sum(gaps) / len(gaps))
-    if spacing <= 0 or distances[nearest] >= 0.5 * spacing:
-        return None
-    ir_string = string_count - nearest
-    return ir_string if 1 <= ir_string <= string_count else None
-
-
 def _convert(
     parsed: ModelResponse,
     task: MeasureTask,
@@ -150,15 +124,8 @@ def _convert(
         beats: list[Beat] = []
         for beat in measure.beats:
             notes: list[Note] = []
-            tab_lines = [float(line) for line in hints.get("tabLines") or []]
-            crop_box = [float(value) for value in task.crop.box]
             for note in beat.notes:
                 ir_string = string_count - note.string + 1
-                if note.digitY is not None:
-                    derived = string_from_digit_y(note.digitY, tab_lines, crop_box, string_count)
-                    if derived is not None:
-                        # 几何优先：数字压在哪个弦线上就是哪个弦（RD-06b）
-                        ir_string = derived
                 if not 1 <= ir_string <= string_count:
                     raise SchemaError(f"弦号越界：模型给 {note.string}，弦数 {string_count}")
                 if len(tuning) == string_count:

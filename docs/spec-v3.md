@@ -361,7 +361,7 @@ AIAOMR/
 | RD-04 | 任何裁片**必须**包含完整谱号区；不含者**禁止**送出 |
 | RD-05 | 单次调用请求的小节数 ≤8 |
 | RD-06 | 模型输出**必须**同时含 `string`、`fret` 与 `pitch`；缺任一字段即 `E_VLM_SCHEMA` |
-| RD-06b | 模型输出的 `string` 用 **Guitar Pro 习惯**：`1` = 最上面那条 TAB 线（最高音弦），`stringCount` = 最下面那条。L2 收到后**必须**翻成 IR 约定（`ir_string = stringCount - model_string + 1`）。提示词按 GP 习惯描述并给一个上下不对称的例子；**禁止**假设模型会按 IR 编号输出——P0 实测它会稳定地按 GP 编号，提示词改不动（见 `docs/p0-results.md`） |；**弦号由程序按 `digitY` 与 TAB 弦线坐标判定**：数字中心离哪条弦线最近（偏差 ≤ 半个弦间距）就是哪个弦，模型给的 `string` 只作对账，冲突时以几何为准；数字不在任何线附近时保留模型值并记证据（RD-06b）
+| RD-06b | 模型输出的 `string` 用 **Guitar Pro 习惯**：`1` = 最上面那条 TAB 线（最高音弦），`stringCount` = 最下面那条。L2 收到后**必须**翻成 IR 约定（`ir_string = stringCount - model_string + 1`）。提示词按 GP 习惯描述并给一个上下不对称的例子；**禁止**假设模型会按 IR 编号输出——P0 实测它会稳定地按 GP 编号，提示词改不动（见 `docs/p0-results.md`） |
 | RD-07 | 模型返回的小节号必须与请求一致，顺序不符即 `E_VLM_SCHEMA` |
 | RD-08 | 对外**只**暴露 `read_systems(tasks: list[MeasureTask]) -> list[MeasureResult]`；**禁止**把 provider 客户端、裁片路径、原始响应泄漏给 L3 |
 | RD-09 | 裁切上限**必须**取 `min(config, caps)`；`caps` 缺失即启动失败（V-12） |
