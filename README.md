@@ -223,6 +223,7 @@ src/aiaomr/
 | [`docs/p0-results.md`](docs/p0-results.md) | 两分钱实测：1.6 MP、thinking 关、单次读整系统这些参数是怎么定下来的 |
 | [`docs/p1-report.md`](docs/p1-report.md) | P1 验收报告：为什么 0/4、卡在哪、哪些项已通过 |
 | [`docs/plan-measure-score.md`](docs/plan-measure-score.md) | **设计稿**：小节从「通过/不通过」改成打分，按分数分「直接通过 / AI 复审 / 判错」三档（未实现） |
+| [`docs/current-state.md`](docs/current-state.md) | **现状总览（人工审核用）**：能力/缺口、代码结构、真页面实测、已知问题分级、待决事项 |
 | [`AGENTS.md`](AGENTS.md) | 开工前必读：红线、依赖方向、开发命令、多 agent 分工 |
 
 规范与方案文档头部目前仍写"待审核"；它们已经按 v3 实施，但不要当成"已审核定稿"。
