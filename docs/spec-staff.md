@@ -261,6 +261,9 @@ class MeasureRhythm(_Model):
 | `staff.beam_coverage` | 0.85 | 横梁段覆盖率下限 |
 | `staff.beam_thickness_deg` | 0.3–0.9 | 横梁段厚度范围 |
 | `staff.layer_gap_deg` | 0.8 | 横梁分层 y 差阈值 |
+| `staff.beam_gap_deg` | [0.5, 4.5] | 相邻符干的水平间距区间（deg）；超出即不算同一条横梁 |
+| `staff.beam_attach_tol_deg` | 0.6 | 横梁段端点"接到符干"的容差（deg，SR-41） |
+| `staff.beam_row_gap_deg` | 0.35 | 同一层内的行分组间隔（deg），也用于把相邻符干对之间的段合并成同一条横梁线 |
 | `staff.dot_min_area_px` | 3 | 附点的绝对面积下限（平方像素；抗噪） |
 | `staff.dot_max_area_deg2` | 0.45 | 附点面积上限 = 该值 × deg²（挡掉整行墨迹） |
 | `staff.pair_max_deg` | 1.2 | 符头与符干配对的最大距离 |

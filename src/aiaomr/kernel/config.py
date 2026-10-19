@@ -171,6 +171,11 @@ class StaffConfig:
     stem_len_deg: tuple[float, float]
     beam_coverage: float
     beam_thickness_deg: tuple[float, float]
+    # 横梁段（SR-28..30）：相邻符干的水平间距区间、段端点接符干的容差、
+    # 同一层内的行分组间隔；layer_gap_deg 是"两条横梁线算不同层"的纵向间距。
+    beam_gap_deg: tuple[float, float]
+    beam_attach_tol_deg: float
+    beam_row_gap_deg: float
     layer_gap_deg: float
     # 符尾区域（SR-31）：墨迹面积下限，deg²；行均值下限；行分组间隔，deg。
     flag_min_ink_deg2: float
@@ -278,6 +283,9 @@ _SCHEMA: dict[str, str] = {
     "staff.template_norm_h": _INT,
     "staff.stem_len_deg": _FLOAT_PAIR,
     "staff.beam_coverage": _FLOAT,
+    "staff.beam_gap_deg": _FLOAT_PAIR,
+    "staff.beam_attach_tol_deg": _FLOAT,
+    "staff.beam_row_gap_deg": _FLOAT,
     "staff.beam_thickness_deg": _FLOAT_PAIR,
     "staff.layer_gap_deg": _FLOAT,
     # 符尾区域（SR-31）的三个阈值。

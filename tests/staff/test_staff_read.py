@@ -58,7 +58,7 @@ def test_sum_mismatch_abstains_instead_of_guessing() -> None:
     assert rhythm.status == "unknown"
     assert rhythm.abstains
     assert rhythm.abstains[0].reason == "AR-05"
-    assert rhythm.abstains[0].detail["expected"] == 32
+    assert rhythm.abstains[0].detail["items"][0]["expected"] == 32
 
 
 def test_missing_time_signature_abstains() -> None:
@@ -120,12 +120,10 @@ def test_four_beamed_eighths_are_ok() -> None:
     assert [beat.duration for beat in rhythm.beats] == ["eighth"] * 4
 
 
-def test_whole_note_still_abstains_until_head_class_exists() -> None:
-    """任务 0 还没有符头类别判据：全音符（空心头、无符干）必须 abstain，不许猜成休止。
-
-    任务 2 补上符头判据后，这个用例应当改成断言 `duration == "whole"`。
-    """
+def test_whole_note_is_judged_as_whole() -> None:
+    """全音符：空心头、无符干（SR-50）。任务 2 补上符头判据后它应该判得出来。"""
     rhythm = _read([{"kind": "whole"}], expected_ticks=32)
 
-    assert rhythm.status == "unknown"
-    assert rhythm.abstains[0].reason == "AR-02"
+    assert rhythm.status == "ok"
+    assert [beat.duration for beat in rhythm.beats] == ["whole"]
+    assert rhythm.beats[0].head == "hollow"

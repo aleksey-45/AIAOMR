@@ -323,15 +323,15 @@ def run_command(args) -> int:
         if not stopped:
             start = stage_begin("staff")
             from .score.staff.read import read_system
-            from .score.verify.invariants import effective_ts, expected_ticks
+            from .score.verify.invariants import effective_ts
 
-            expected_by_measure: dict[int, int] = {}
+            signatures_by_measure = {}
             for page in pageset.pages:
                 for system in page.systems:
                     for box in system.measures:
                         signature = effective_ts(skeleton.timeSignatures, box.index)
                         if signature is not None:
-                            expected_by_measure[box.index] = expected_ticks(signature)
+                            signatures_by_measure[box.index] = signature
             rhythm_path = out_dir / "staff" / "rhythm.json"
             if args.resume and rhythm_path.exists() and "staff" not in args.force:
                 payload = json.loads(rhythm_path.read_text(encoding="utf-8"))
@@ -350,7 +350,7 @@ def run_command(args) -> int:
                             [(line.top, line.bottom) for line in system.staffLines]
                             or None
                         )
-                        for rhythm in read_system(arr, system, deg, expected_by_measure, line_runs):
+                        for rhythm in read_system(arr, system, deg, signatures_by_measure, line_runs):
                             rhythms.append(rhythm)
                             reporter.emit(
                                 "staff", "staff.measure", index=rhythm.index,

@@ -1,8 +1,12 @@
-"""横梁段与符尾（`docs/spec-staff.md` SR-28..32）。
+"""横梁段与符尾（`docs/spec-staff.md` SR-28..32、SR-41..43）。
 
-任务 0 仍按"相邻符干之间数行数"的老口径实现，左右延伸建图与入射段计数是任务 3 的事：
-那部分是归属问题（`group.py`），不是判据问题。阈值一律以 deg 为单位（R-03），从
-`cfg.staff.beam_coverage` / `cfg.staff.flag_*` 读。
+任务 3 起，`BeamCriterion` 输出的是**横梁段**而不是"两干之间有几行"：每条横梁段有自己的
+左右端点（`bbox` 的 x0/x1）和它接在哪两根符干上（`evidence.attachLeft/attachRight`）。
+归属层（`group.py`）用这些段建图：连通块 = 连梁组，每根符干的横梁条数 = **入射段条数**，
+组内顺序由"只有右段 / 只有左段 / 两侧都有"判定。
+
+这一条很关键：前八后十六这种混合时值，二级横梁只从第二个音符开始，按"两干之间的行数"会
+把第一个音符也算成十六分；按入射段数才对。
 """
 
 from __future__ import annotations
@@ -15,11 +19,7 @@ from .context import GeoContext
 
 
 class BeamCriterion(Criterion):
-    """连梁：两根符干顶部之间的粗横线，行组数 1/2/3 对应八/十六/三十二分。
-
-    注意：这里只数"这两根符干之间有几条横线"，不判断谁和谁同组、谁是组内最后一个；
-    那是任务 3 的 `group.py` 用左右延伸建图去做的事。
-    """
+    """横梁段：`value` 是层号（1 = 最靠符干端的那条），`bbox` 是这一段的左右与上下范围。"""
 
     name = "beam"
 
@@ -28,41 +28,67 @@ class BeamCriterion(Criterion):
 
     def detect(self, ctx: GeoContext, findings=None) -> list[Finding]:
         stems = (findings or {}).get("stem", [])
+        min_gap, max_gap = self.staff.beam_gap_deg
+        tol = self.staff.beam_attach_tol_deg * ctx.deg
         out: list[Finding] = []
         for left, right in zip(stems, stems[1:]):
             gap = right.value - left.value
-            if not (0.5 * ctx.deg <= gap <= 4.5 * ctx.deg):
+            if not (min_gap * ctx.deg <= gap <= max_gap * ctx.deg):
                 continue
-            count = self._count(ctx, left, right)
-            if count:
-                out.append(
-                    Finding(
-                        kind=self.name,
-                        value=float(count),
-                        bbox=(left.value, left.bbox[1], right.value, right.bbox[1]),
-                        evidence={"left": left.value, "right": right.value},
-                    )
-                )
+            out.extend(self._segments(ctx, left, right, tol))
         return out
 
-    def _count(self, ctx: GeoContext, left: Finding, right: Finding) -> int:
+    def _segments(self, ctx: GeoContext, left: Finding, right: Finding, tol: float) -> list[Finding]:
         x0 = int(left.value) + 2
         x1 = int(right.value) - 2
         if x1 - x0 < max(4, ctx.deg * 0.5):
-            return 0
+            return []
         top = max(0, int(min(left.bbox[1], right.bbox[1]) - 0.6 * ctx.deg))
         bottom = min(ctx.height, int(max(left.bbox[1], right.bbox[1]) + 1.2 * ctx.deg))
-        coverage = ctx.beam_dark[top:bottom, x0:x1].mean(axis=1)
+        region = ctx.beam_dark[top:bottom, x0:x1]
+        if region.size == 0:
+            return []
+        coverage = region.mean(axis=1)
         rows = np.flatnonzero(coverage > self.staff.beam_coverage)
         if len(rows) == 0:
-            return 0
-        groups = [[int(rows[0])]]
+            return []
+
+        # 行分组 = 分层：层间空隙比层厚小，用 beam_layer_gap_deg 控制
+        gap = max(1, int(ctx.deg * self.staff.beam_row_gap_deg))
+        layers: list[list[int]] = [[int(rows[0])]]
         for row in rows[1:]:
-            if int(row) - groups[-1][-1] <= max(1, int(ctx.deg * 0.35)):
-                groups[-1].append(int(row))
+            if int(row) - layers[-1][-1] <= gap:
+                layers[-1].append(int(row))
             else:
-                groups.append([int(row)])
-        return min(3, len(groups))
+                layers.append([int(row)])
+
+        segments: list[Finding] = []
+        for layer_index, layer in enumerate(layers[:3], start=1):
+            band = region[layer[0] : layer[-1] + 1, :]
+            columns = np.flatnonzero(band.any(axis=0))
+            if columns.size == 0:
+                continue
+            start = x0 + int(columns[0])
+            end = x0 + int(columns[-1]) + 1
+            attach_left = start <= left.value + tol
+            attach_right = end >= right.value - tol
+            if not attach_left and not attach_right:
+                continue  # 段两头都接不上符干：不是连梁（横梁残留、休止条之类）
+            segments.append(
+                Finding(
+                    kind=self.name,
+                    value=float(layer_index),
+                    bbox=(float(start), float(top + layer[0]), float(end), float(top + layer[-1] + 1)),
+                    evidence={
+                        "left": left.value,
+                        "right": right.value,
+                        "attachLeft": bool(attach_left),
+                        "attachRight": bool(attach_right),
+                        "layer": layer_index,
+                    },
+                )
+            )
+        return segments
 
 
 class FlagCriterion(Criterion):
@@ -98,6 +124,7 @@ class FlagCriterion(Criterion):
                     kind=self.name,
                     value=float(min(2, groups)),
                     bbox=(x, top, right, bottom),
+                    evidence={"stem": stem.value},
                 )
             )
         return out

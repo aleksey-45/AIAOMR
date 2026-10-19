@@ -104,6 +104,10 @@ template_norm_h = 16
 stem_len_deg = [2.0, 5.5]
 # 横梁段覆盖率下限（SR-28）。
 beam_coverage = 0.85
+# 横梁段：相邻符干的水平间距区间，deg；段端点"接到符干"的容差，deg；同一层内行分组间隔，deg。
+beam_gap_deg = [0.5, 4.5]
+beam_attach_tol_deg = 0.6
+beam_row_gap_deg = 0.35
 # 横梁段厚度范围，deg（SR-28）。
 beam_thickness_deg = [0.3, 0.9]
 # 横梁分层 y 差阈值，deg（SR-29）。
